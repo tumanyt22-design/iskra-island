@@ -46,6 +46,14 @@
   .item.ok .tick { display: block; }
   .item.ok button { display: none; }
 
+  .settings { margin-top: 22px; }
+  .setting { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+  .setting:last-child { border-bottom:0; }
+  .setting .meta { flex:1; min-width:0; }
+  .setting input[type=range] { width:112px; accent-color:var(--c); }
+  .setting select { background:#25272c; color:var(--tx); border:0; border-radius:10px; padding:9px; max-width:120px; }
+  .setting input[type=checkbox] { width:19px; height:19px; accent-color:var(--c); }
+  .save { width:100%; border:0; border-radius:16px; background:var(--c); color:#000; font-weight:700; padding:14px; margin-top:12px; }
   .hint { margin: 22px 4px 8px; font-size: 12px; line-height: 1.5; color: var(--mu); }
   .link { border: 0; background: none; color: var(--c); font-size: 13px; font-weight: 600; padding: 6px 4px; }
   .foot { margin-top: 26px; text-align: center; font-size: 12px; color: #4a4d54; line-height: 1.6; }
@@ -75,6 +83,27 @@
     </div>
   </div>
 
+  <div class="settings">
+    <p class="cap">Внешний вид острова</p>
+    <div class="list">
+      <div class="setting"><div class="meta"><b>Тема</b><small>Цвет глаз и акцентов</small></div>
+        <select id="theme"><option value="gold">Золотая</option><option value="blue">Голубая</option><option value="purple">Фиолетовая</option><option value="green">Зелёная</option></select>
+      </div>
+      <div class="setting"><div class="meta"><b>Размер</b><small><span id="scaleVal">90</span>%</small></div><input id="scale" type="range" min="75" max="100" value="90"></div>
+      <div class="setting"><div class="meta"><b>Положение сверху</b><small><span id="topVal">8</span> dp от верхнего края</small></div><input id="top" type="range" min="0" max="80" value="8"></div>
+    </div>
+    <p class="cap" style="margin-top:18px">Что показывать в острове</p>
+    <div class="list">
+      <label class="setting"><div class="meta"><b>Погода</b></div><input id="weather" type="checkbox" checked></label>
+      <label class="setting"><div class="meta"><b>Музыкальный плеер</b></div><input id="music" type="checkbox" checked></label>
+      <label class="setting"><div class="meta"><b>Батарея</b></div><input id="battery" type="checkbox" checked></label>
+      <label class="setting"><div class="meta"><b>Фонарик</b></div><input id="torch" type="checkbox" checked></label>
+      <label class="setting"><div class="meta"><b>Секундомер</b></div><input id="stopwatch" type="checkbox" checked></label>
+      <label class="setting"><div class="meta"><b>Субтитры в свёрнутом острове</b></div><input id="subtitles" type="checkbox" checked></label>
+    </div>
+    <button class="save" id="saveSettings">Сохранить настройки</button>
+  </div>
+
   <p class="hint">Если «Доступ к уведомлениям» серый или не включается: открой настройки приложения, нажми ⋮ вверху справа и выбери «Разрешить ограниченные настройки». Потом вернись и включи доступ.</p>
   <button class="link" data-act="appinfo">Настройки приложения →</button>
 
@@ -96,6 +125,32 @@
     document.getElementById('ptxt').textContent = s.enabled ? 'Остров включён' : 'Остров выключен';
   };
   try { window.setStatus(JSON.parse(App.status())); } catch (e) {}
+
+  function readSettings() {
+    var ids = ['weather','music','battery','torch','stopwatch','subtitles'];
+    var o = { theme:document.getElementById('theme').value,
+      scale:parseInt(document.getElementById('scale').value,10),
+      top:parseInt(document.getElementById('top').value,10) };
+    ids.forEach(function(k){ o[k] = document.getElementById(k).checked; });
+    return o;
+  }
+  function fillSettings(o) {
+    if (!o) return;
+    document.getElementById('theme').value = o.theme || 'gold';
+    document.getElementById('scale').value = o.scale || 90;
+    document.getElementById('top').value = o.top == null ? 8 : o.top;
+    ['weather','music','battery','torch','stopwatch','subtitles'].forEach(function(k){
+      document.getElementById(k).checked = o[k] !== false;
+    });
+    document.getElementById('scaleVal').textContent = document.getElementById('scale').value;
+    document.getElementById('topVal').textContent = document.getElementById('top').value;
+  }
+  document.getElementById('scale').addEventListener('input', function(){ document.getElementById('scaleVal').textContent=this.value; });
+  document.getElementById('top').addEventListener('input', function(){ document.getElementById('topVal').textContent=this.value; });
+  document.getElementById('saveSettings').addEventListener('click', function(){
+    try { App.saveSettings(JSON.stringify(readSettings())); } catch(e) {}
+  });
+  try { fillSettings(JSON.parse(App.settings())); } catch(e) { fillSettings(null); }
 
   // глаза иногда смотрят по сторонам
   setInterval(function () {

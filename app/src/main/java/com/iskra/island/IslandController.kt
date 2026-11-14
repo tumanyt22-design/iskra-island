@@ -36,8 +36,41 @@ import kotlin.math.abs
 @SuppressLint("StaticFieldLeak", "SetJavaScriptEnabled", "AddJavascriptInterface", "ClickableViewAccessibility")
 object IslandController {
 
-    // Отступ острова от верха экрана, dp. Больше число — остров ниже.
-    const val TOP_MARGIN = 14
+    // Настройки пользователя сохраняются между запусками.
+    private val defaultSettings = JSONObject().apply {
+        put("theme", "gold"); put("scale", 90); put("top", 8)
+        put("weather", true); put("music", true); put("battery", true)
+        put("torch", true); put("stopwatch", true); put("subtitles", true)
+    }
+    fun settingsJson(c: Context): String {
+        val p = prefs(c)
+        val o = JSONObject(defaultSettings.toString())
+        o.put("theme", p.getString("theme", "gold"))
+        o.put("scale", p.getInt("scale", 90))
+        o.put("top", p.getInt("top", 8))
+        for (k in listOf("weather","music","battery","torch","stopwatch","subtitles"))
+            o.put(k, p.getBoolean(k, true))
+        return o.toString()
+    }
+    fun saveSettings(c: Context, raw: String) {
+        try {
+            val o = JSONObject(raw)
+            val e = prefs(c).edit()
+            val theme = o.optString("theme", "gold")
+            e.putString("theme", if (theme in listOf("gold","blue","purple","green")) theme else "gold")
+            e.putInt("scale", o.optInt("scale", 90).coerceIn(75, 100))
+            e.putInt("top", o.optInt("top", 8).coerceIn(0, 80))
+            for (k in listOf("weather","music","battery","torch","stopwatch","subtitles"))
+                e.putBoolean(k, o.optBoolean(k, true))
+            e.apply()
+            ui.post {
+                val c = ctx ?: return@post
+                lp?.let { placeTop(it); try { wm?.updateViewLayout(web, it) } catch (_: Exception) {} }
+                clp?.let { placeTop(it); try { wm?.updateViewLayout(catcher, it) } catch (_: Exception) {} }
+                js("window.applySettings && window.applySettings(${settingsJson(c)})")
+            }
+        } catch (_: Exception) {}
+    }
 
     private const val COLLAPSED_W = 168
     private const val COLLAPSED_H = 44
@@ -126,6 +159,8 @@ object IslandController {
         w.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 loaded = true
+                val c = ctx
+                if (c != null) js("window.applySettings && window.applySettings(${settingsJson(c)})")
                 js("window.onMedia && window.onMedia($lastMediaJson)")
             }
         }
@@ -135,15 +170,20 @@ object IslandController {
         val dm = context.resources.displayMetrics
         val expW = minOf(324, (dm.widthPixels / dm.density).toInt() - 16)
         visW = expW
-        val base = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        val visualFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+        // У окна касаний намеренно НЕТ LAYOUT_NO_LIMITS/LAYOUT_IN_SCREEN:
+        // иначе некоторые прошивки растягивают область касания к системной верхней зоне.
+        val touchFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
 
         // Окно с рисунком: большое, не меняет размер и не ловит нажатия. Вся анимация внутри страницы.
         val p = WindowManager.LayoutParams(
             dp(expW), dp(VIS_H),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            base or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            visualFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         )
         placeTop(p)
@@ -152,10 +192,9 @@ object IslandController {
         val cv = View(context)
         cv.setOnTouchListener { _, e -> onCatch(e) }
         val cp = WindowManager.LayoutParams(
-            dp(COLLAPSED_W), dp(COLLAPSED_H),
+            dp((COLLAPSED_W * prefs(context).getInt("scale", 90) / 100f).toInt()), dp(COLLAPSED_H),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            base or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            touchFlags,
             PixelFormat.TRANSLUCENT
         )
         placeTop(cp)
@@ -184,7 +223,9 @@ object IslandController {
 
     private fun placeTop(p: WindowManager.LayoutParams) {
         p.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        p.y = dp(TOP_MARGIN)
+        val c = ctx
+        val top = c?.let { prefs(it).getInt("top", 8) } ?: 8
+        p.y = dp(top)
         if (Build.VERSION.SDK_INT >= 30) {
             p.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
         } else if (Build.VERSION.SDK_INT >= 28) {

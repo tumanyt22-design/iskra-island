@@ -134,6 +134,14 @@ class MainActivity : Activity() {
         fun status(): String = statusJson()
 
         @JavascriptInterface
+        fun settings(): String = IslandController.settingsJson(this@MainActivity)
+
+        @JavascriptInterface
+        fun saveSettings(raw: String) {
+            IslandController.saveSettings(this@MainActivity, raw)
+        }
+
+        @JavascriptInterface
         fun act(name: String) {
             runOnUiThread { handle(name) }
         }

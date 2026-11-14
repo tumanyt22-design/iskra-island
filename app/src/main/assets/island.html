@@ -64,7 +64,7 @@
     box-shadow: 0 0 10px rgba(255,179,0,.25);
     transition: opacity .3s, transform .3s;
   }
-  body.has-media:not(.s-open) .art-s { opacity: 1; transform: none; }
+  .art-s { display: none !important; }
 
   .eq {
     position: absolute; right: 15px; top: 14px; height: 16px; display: flex;
@@ -233,7 +233,7 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var LAT = 39.6542, LON = 66.9597;       // координаты для погоды (Самарканд). Поменяй на свой город.
-  var COL_W = 168, COL_H = 44, SUB_H = 68;
+  var COL_W = 168, COL_H = 44, SUB_H = 68, userScale = 90;
   var ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
   var ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
 
@@ -263,11 +263,30 @@
     r.setProperty('--iw', w + 'px'); r.setProperty('--ih', h + 'px');
     if (A()) { try { A().setSize(w, h, 0); } catch (e) {} }   // меняется только невидимое окно-ловец
   }
+  function scaled(v) { return Math.round(v * userScale / 100); }
   function collapsedSize() {
-    if (subMode) setSize(Math.min(EXPW, 300), SUB_H);
-    else setSize(COL_W, COL_H);
+    if (subMode && settings.subtitles) setSize(Math.min(scaled(EXPW), 300), SUB_H);
+    else setSize(scaled(COL_W), COL_H);
   }
-  function layoutOpen() { setSize(EXPW, 44 + $('content').offsetHeight + 2); }
+  function layoutOpen() { setSize(scaled(EXPW), 44 + $('content').offsetHeight + 2); }
+
+  var settings = { theme:'gold', scale:90, top:8, weather:true, music:true, battery:true, torch:true, stopwatch:true, subtitles:true };
+  var themes = { gold:'#ffb300', blue:'#55b8ff', purple:'#b58cff', green:'#57d69a' };
+  window.applySettings = function (o) {
+    if (!o) return;
+    settings = o; userScale = Math.max(75, Math.min(100, parseInt(o.scale,10) || 90));
+    document.documentElement.style.setProperty('--c', themes[o.theme] || themes.gold);
+    document.documentElement.style.setProperty('--W', scaled(EXPW) + 'px');
+    $('wt').parentElement.style.display = o.weather ? '' : 'none';
+    $('media').style.display = (o.music && media) ? 'block' : 'none';
+    document.querySelector('.tile.bat').style.display = o.battery ? '' : 'none';
+    $('torch').style.display = o.torch ? '' : 'none';
+    $('sw').style.display = o.stopwatch ? '' : 'none';
+    subsOn = !!o.subtitles;
+    $('cc').classList.toggle('on', subsOn);
+    updateSub();
+    if (S === 'collapsed') collapsedSize(); else if (S === 'open') layoutOpen();
+  };
   function applyBody() {
     document.body.className = 's-' + S + (hasMedia ? ' has-media' : '') + (playing ? ' playing' : '') +
       (subMode ? ' subs' : '') + (A() ? '' : ' preview');
@@ -435,7 +454,7 @@
   }
   function renderMedia() {
     var c = $('media');
-    if (!media) { c.style.display = 'none'; return; }
+    if (!media || !settings.music) { c.style.display = 'none'; return; }
     c.style.display = 'block';
     var title = media.title || 'Без названия', artist = media.artist || '';
     $('mt').textContent = title; $('ma').textContent = artist;
