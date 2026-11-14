@@ -5,188 +5,469 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
   :root {
-    --amber: #ffb300;
-    --collapsed-w: 130px;
-    --collapsed-h: 38px;
+    --c: #ffb300;
+    --card: #131417;
+    --tx: #f4f4f5;
+    --mu: #8b8e95;
+    --W: 340px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
-    margin: 0; width: 100%; height: 100%;
-    background: transparent; overflow: hidden;
-    font-family: system-ui, sans-serif; color: #eee;
+    margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--tx);
     user-select: none; -webkit-user-select: none;
   }
+  svg { fill: currentColor; }
 
+  /* Остров заполняет окно: размером окна управляет Android (плавная анимация) */
   #island {
-    position: relative; margin: 0 auto; overflow: hidden;
-    width: var(--collapsed-w); height: var(--collapsed-h);
-    background: #000; border-radius: 19px;
-    transition: width .28s cubic-bezier(.3,1.2,.4,1), height .28s cubic-bezier(.3,1.2,.4,1), border-radius .28s;
+    position: absolute; inset: 0; background: #000; overflow: hidden;
+    border-radius: 22px; transition: border-radius .3s;
   }
-  #island.open { width: 100%; height: 100%; border-radius: 30px; }
+  body.s-peek #island { border-radius: 26px; }
+  body.s-open #island { border-radius: 34px; }
 
-  /* Глаза всегда сверху по центру */
+  /* ===== верхняя полоса 44px: арт | глаза | эквалайзер ===== */
+  .bar { position: absolute; top: 0; left: 0; right: 0; height: 44px; }
+
   .eyes {
-    position: absolute; top: 0; left: 0; right: 0; height: var(--collapsed-h);
-    display: flex; align-items: center; justify-content: center; gap: 16px;
+    position: absolute; left: 50%; top: 50%; display: flex; gap: 15px;
+    transform: translate(calc(-50% + var(--lx, 0px)), -50%); transition: transform .35s;
   }
   .eye {
-    width: 9px; height: 16px; border-radius: 6px;
-    background: var(--amber); box-shadow: 0 0 8px #ffb300aa;
+    width: 9px; height: 17px; border-radius: 6px; background: var(--c);
+    box-shadow: 0 0 9px rgba(255,179,0,.65);
     animation: blink 5s infinite;
-    transition: transform .25s;
+    transition: height .3s, width .3s, background .3s, box-shadow .3s;
   }
-  .look-left .eye  { transform: translateX(-5px); }
-  .look-right .eye { transform: translateX(5px); }
-  @keyframes blink { 0%, 93%, 100% { height: 16px; } 96% { height: 2px; } }
+  @keyframes blink { 0%,93%,100% { height: 17px; } 96% { height: 2px; } }
+  @keyframes bob { from { transform: translateY(-2px); } to { transform: translateY(2px); } }
+  .music .eye { animation: blink 5s infinite, bob .8s ease-in-out infinite alternate; }
+  .music .eye + .eye { animation-delay: 0s, -.25s; }
 
+  /* настроения глаз */
+  .happy .eye {
+    animation: none; height: 8px; width: 16px; background: none; box-shadow: none;
+    border-top: 4px solid var(--c); border-radius: 16px 16px 0 0; margin-top: -2px;
+  }
+  .sleepy .eye { animation: none; height: 6px; width: 11px; opacity: .8; }
+  .low .eye {
+    animation: none; height: 8px; width: 11px; background: #ff5a4d;
+    box-shadow: 0 0 9px rgba(255,90,77,.6);
+  }
+
+  .art-s {
+    position: absolute; left: 11px; top: 9px; width: 26px; height: 26px; border-radius: 8px;
+    background: #222 center / cover no-repeat; opacity: 0; transform: scale(.6);
+    transition: opacity .3s, transform .3s;
+  }
+  body.has-media:not(.s-open) .art-s { opacity: 1; transform: none; }
+
+  .eq {
+    position: absolute; right: 15px; top: 14px; height: 16px; display: flex;
+    align-items: flex-end; gap: 2px; opacity: 0; transition: opacity .3s;
+  }
+  .eq i { width: 3px; height: 4px; border-radius: 2px; background: var(--c); }
+  body.playing .eq { opacity: 1; }
+  body.playing .eq i { animation: eq .9s ease-in-out infinite alternate; }
+  .eq i:nth-child(2) { animation-delay: -.3s; }
+  .eq i:nth-child(3) { animation-delay: -.6s; }
+  .eq i:nth-child(4) { animation-delay: -.15s; }
+  @keyframes eq { from { height: 3px; } to { height: 15px; } }
+
+  /* ===== «подглядывание» при старте музыки ===== */
+  .peek {
+    position: absolute; top: 44px; left: 0; right: 0; padding: 0 20px; text-align: center;
+    opacity: 0; transition: opacity .15s;
+  }
+  body.s-peek .peek { opacity: 1; transition: opacity .3s .12s; }
+  .pt { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pa { font-size: 11px; color: var(--mu); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ===== раскрытая шторка ===== */
   .content {
-    position: absolute; inset: 0; padding: 46px 20px 14px;
-    opacity: 0; pointer-events: none;
-    transition: opacity .15s;
+    position: absolute; top: 44px; left: 50%; width: var(--W); transform: translateX(-50%);
+    padding: 0 14px 14px; opacity: 0; pointer-events: none; transition: opacity .15s;
   }
-  #island.open .content { opacity: 1; pointer-events: auto; transition: opacity .25s .12s; }
+  body.s-open .content { opacity: 1; pointer-events: auto; transition: opacity .3s .1s; }
 
-  .time { font-size: 44px; font-weight: 600; line-height: 1; text-align: center; letter-spacing: 1px; }
-  .date { font-size: 13px; color: #999; text-align: center; margin-top: 4px; text-transform: capitalize; }
+  .hd { display: flex; align-items: flex-end; justify-content: space-between; padding: 0 6px 14px; }
+  .time { font-size: 46px; font-weight: 600; line-height: 1; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .date { font-size: 12px; color: var(--mu); margin-top: 7px; }
+  .wx { text-align: right; }
+  .wx .t { font-size: 24px; font-weight: 600; line-height: 1; white-space: nowrap; }
+  .wx .d { font-size: 12px; color: var(--mu); margin-top: 6px; }
+  .wx .r { font-size: 11px; color: #5d6068; margin-top: 2px; }
 
-  .row { display: flex; gap: 10px; margin-top: 14px; }
-  .card {
-    flex: 1; background: #15171b; border-radius: 16px; padding: 10px 12px;
-    display: flex; flex-direction: column; gap: 2px;
+  .media { display: none; background: var(--card); border-radius: 22px; padding: 11px 12px 8px; margin-bottom: 8px; }
+  .mrow { display: flex; align-items: center; gap: 11px; }
+  .cover { width: 48px; height: 48px; border-radius: 13px; background: #24262b center / cover no-repeat; flex: none; }
+  .mtxt { flex: 1; min-width: 0; }
+  .mt { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ma { font-size: 12px; color: var(--mu); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .btns { display: flex; gap: 2px; flex: none; align-items: center; }
+  .btn {
+    width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; background: none; color: #fff;
+    display: flex; align-items: center; justify-content: center;
   }
-  .card .big { font-size: 22px; font-weight: 600; }
-  .card .small { font-size: 12px; color: #999; }
-  .bat-bar { height: 5px; border-radius: 3px; background: #2a2d33; margin-top: 4px; overflow: hidden; }
-  .bat-fill { height: 100%; width: 0; background: var(--amber); transition: width .4s; }
+  .btn svg { width: 18px; height: 18px; }
+  .btn.main { background: #fff; color: #000; }
+  .btn:active { opacity: .6; }
+  .pw { padding: 9px 0 5px; }
+  .prog { height: 4px; background: #2a2c31; border-radius: 2px; overflow: hidden; }
+  .pf { height: 100%; width: 0; background: #fff; border-radius: 2px; }
+  .times { display: flex; justify-content: space-between; font-size: 10px; color: var(--mu); font-variant-numeric: tabular-nums; }
 
-  .off {
-    position: absolute; bottom: 8px; right: 16px; font-size: 11px; color: #555;
-    padding: 4px 6px;
+  .row { display: flex; gap: 8px; }
+  .row + .row { margin-top: 8px; }
+  .tile {
+    background: var(--card); border-radius: 20px; padding: 10px 14px; min-height: 52px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tile.bat { flex: 1.4; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; }
+  .bat .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .bat .p { font-size: 20px; font-weight: 600; }
+  .bat .s { font-size: 12px; }
+  .bar2 { height: 5px; border-radius: 3px; background: #2a2c31; overflow: hidden; }
+  .bf { height: 100%; width: 0; background: var(--c); border-radius: 3px; transition: width .4s, background .3s; }
+  .bf.low { background: #ff5a4d; }
+
+  .tile.sq { flex: .7; justify-content: center; padding: 10px; color: #fff; }
+  .tile.sq svg { width: 22px; height: 22px; }
+  .tile.on { background: var(--c); color: #000; }
+  .tile.sw { flex: 1; flex-direction: column; align-items: flex-start; gap: 2px; justify-content: center; }
+  .sw .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sw .l { font-size: 10px; color: var(--mu); }
+  .tile.sw.on { background: var(--card); }
+  .tile.sw.on .v { color: var(--c); }
+  .tile:active { opacity: .75; }
+
+  .tile.volt { flex: 1; }
+  .volt svg { width: 20px; height: 20px; color: var(--mu); flex: none; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; flex: 1; height: 6px; border-radius: 3px; outline: none; margin: 0;
+    background: linear-gradient(to right, var(--c) var(--p, 50%), #2a2c31 var(--p, 50%));
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff;
+  }
+
+  /* предпросмотр в браузере Acode (без Android) */
+  body.preview { background: #2b2d31; }
+  body.preview #island {
+    inset: auto; left: 50%; top: 12px; transform: translateX(-50%); width: 168px; height: 44px;
+    transition: border-radius .3s, width .3s, height .3s;
   }
 </style>
 </head>
-<body>
+<body class="s-collapsed">
 
 <div id="island">
-  <div class="eyes" id="eyes"><div class="eye"></div><div class="eye"></div></div>
+  <div class="bar">
+    <div class="art-s" id="arts"></div>
+    <div class="eyes" id="eyes"><div class="eye"></div><div class="eye"></div></div>
+    <div class="eq"><i></i><i></i><i></i><i></i></div>
+  </div>
 
-  <div class="content">
-    <div class="time" id="time">--:--</div>
-    <div class="date" id="date"></div>
+  <div class="peek"><div class="pt" id="pt"></div><div class="pa" id="pa"></div></div>
 
-    <div class="row">
-      <div class="card">
-        <div class="big" id="wx-temp">…</div>
-        <div class="small" id="wx-desc">Погода</div>
+  <div class="content" id="content">
+    <div class="hd">
+      <div>
+        <div class="time" id="time">--:--</div>
+        <div class="date" id="date"></div>
       </div>
-      <div class="card">
-        <div class="big" id="bat-pct">…</div>
-        <div class="small" id="bat-state">Батарея</div>
-        <div class="bat-bar"><div class="bat-fill" id="bat-fill"></div></div>
+      <div class="wx">
+        <div class="t" id="wt">…</div>
+        <div class="d" id="wd">погода</div>
+        <div class="r" id="wr"></div>
       </div>
     </div>
 
-    <div class="off" id="off">выключить</div>
+    <div class="media" id="media">
+      <div class="mrow">
+        <div class="cover ctl" id="cover"></div>
+        <div class="mtxt"><div class="mt" id="mt"></div><div class="ma" id="ma"></div></div>
+        <div class="btns">
+          <button class="btn ctl" id="bprev"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12L18 6v12z"/></svg></button>
+          <button class="btn main ctl" id="bplay"></button>
+          <button class="btn ctl" id="bnext"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18V6l8.5 6z"/></svg></button>
+        </div>
+      </div>
+      <div class="pw ctl" id="pw"><div class="prog"><div class="pf" id="pf"></div></div></div>
+      <div class="times"><span id="tc">0:00</span><span id="td"></span></div>
+    </div>
+
+    <div class="row">
+      <div class="tile bat">
+        <div class="top"><span class="p" id="bp">—</span><span class="s" id="bs"></span></div>
+        <div class="bar2"><div class="bf" id="bf"></div></div>
+      </div>
+      <div class="tile sq ctl" id="torch"><svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg></div>
+      <div class="tile sw ctl" id="sw"><span class="v" id="swt">0:00</span><span class="l">секундомер</span></div>
+    </div>
+    <div class="row">
+      <div class="tile volt">
+        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4-.9 7-4.5 7-8.8s-3-7.9-7-8.8z"/></svg>
+        <input class="ctl" id="vol" type="range" min="0" max="100" value="50">
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-  // ===== НАСТРОЙКИ =====
-  // Координаты для погоды (по умолчанию Самарканд). Поменяй на свой город.
-  var LAT = 39.6542, LON = 66.9597;
-  // ======================
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var LAT = 39.6542, LON = 66.9597;       // координаты для погоды (Самарканд). Поменяй на свой город.
+  var COL_W = 168, COL_H = 44;
+  var ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+  var ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
 
-  var island = document.getElementById('island');
-  var eyes = document.getElementById('eyes');
-  var isOpen = false, collapseTimer = null, lastWeather = 0;
+  var S = 'collapsed', EXPW = 340;
+  var media = null, hasMedia = false, playing = false, mediaStamp = 0;
+  var batPct = -1, charging = false, happyUntil = 0, lastWx = 0;
+  var peekT = null, idleT = null;
+  var swRun = false, swStart = 0, swAcc = 0, swLT = null, swLongDone = false, torchOn = false;
 
-  function native(name, arg) {
-    try { if (window.Android && Android[name]) return Android[name](arg); } catch (e) {}
-    return null;
+  function A() { return window.Android; }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function fmt(ms) {
+    if (!(ms > 0)) return '0:00';
+    var s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
+    s = s % 60; m = m % 60;
+    return h > 0 ? h + ':' + pad(m) + ':' + pad(s) : m + ':' + pad(s);
   }
 
-  function setOpen(v) {
-    if (v === isOpen) return;
-    isOpen = v;
-    clearTimeout(collapseTimer);
-    if (v) {
-      native('setExpanded', true);
-      setTimeout(function () { island.classList.add('open'); }, 50);
-      tick(); updateBattery();
-      if (Date.now() - lastWeather > 10 * 60 * 1000) loadWeather();
-    } else {
-      island.classList.remove('open');
-      collapseTimer = setTimeout(function () { native('setExpanded', false); }, 320);
+  // ---------- размеры окна ----------
+  function setSize(w, h, ms) {
+    w = Math.round(w); h = Math.round(h);
+    if (A()) { try { A().setSize(w, h, ms); } catch (e) {} }
+    else { var i = $('island'); i.style.width = w + 'px'; i.style.height = h + 'px'; }
+  }
+  function layoutOpen() {
+    var h = 44 + $('content').offsetHeight + 4;
+    setSize(EXPW, h, 320);
+  }
+  function applyBody() {
+    document.body.className = 's-' + S + (hasMedia ? ' has-media' : '') + (playing ? ' playing' : '') + (A() ? '' : ' preview');
+  }
+
+  // ---------- состояния: collapsed / peek / open ----------
+  function armIdle() {
+    clearTimeout(idleT);
+    idleT = setTimeout(function () { if (S === 'open') setState('collapsed'); }, 15000);
+  }
+  function setState(s) {
+    clearTimeout(idleT);
+    if (s === S && s !== 'open') return;
+    S = s; applyBody();
+    if (s === 'collapsed') { clearTimeout(peekT); setSize(COL_W, COL_H, 260); }
+    else if (s === 'peek') { setSize(Math.min(EXPW, 300), 78, 300); }
+    else {
+      clearTimeout(peekT);
+      refreshOpen(); layoutOpen(); armIdle();
+      setTimeout(function () { if (S === 'open') layoutOpen(); }, 380);
     }
   }
+  function peek() {
+    if (S === 'open') return;
+    clearTimeout(peekT);
+    if (S !== 'peek') setState('peek');
+    peekT = setTimeout(function () { if (S === 'peek') setState('collapsed'); }, 4500);
+  }
+  window.onOutside = function () { if (S !== 'collapsed') setState('collapsed'); };
 
-  island.addEventListener('click', function () { setOpen(!isOpen); });
-  document.getElementById('off').addEventListener('click', function (e) {
-    e.stopPropagation(); native('quit');
-  });
-
-  // ----- время -----
+  // ---------- время ----------
   function tick() {
     var d = new Date();
-    document.getElementById('time').textContent =
-      d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('date').textContent =
-      d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('time').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    $('date').textContent = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   }
-  setInterval(function () { if (isOpen) tick(); }, 1000);
 
-  // ----- батарея -----
-  function updateBattery() {
-    var r = native('battery');
-    if (!r) return;
-    var p = r.split(','), pct = parseInt(p[0], 10), charging = p[1] === 'true';
-    document.getElementById('bat-pct').textContent = pct >= 0 ? pct + '%' : '—';
-    document.getElementById('bat-state').textContent = charging ? 'Заряжается ⚡' : 'Батарея';
-    document.getElementById('bat-fill').style.width = Math.max(0, pct) + '%';
+  // ---------- батарея ----------
+  function renderBattery() {
+    var low = batPct >= 0 && batPct <= 15 && !charging;
+    $('bp').textContent = batPct >= 0 ? batPct + '%' : '—';
+    $('bs').textContent = charging ? '⚡ заряжается' : '';
+    $('bs').style.color = charging ? 'var(--c)' : '';
+    $('bf').style.width = Math.max(0, batPct) + '%';
+    $('bf').className = 'bf' + (low ? ' low' : '');
   }
-  setInterval(function () { if (isOpen) updateBattery(); }, 15000);
+  function pollBattery() {
+    if (!A()) { batPct = 76; renderBattery(); updateMood(); return; }
+    try {
+      var r = A().battery().split(',');
+      var p = parseInt(r[0], 10), c = r[1] === 'true';
+      if (c && !charging && batPct >= 0) { happyUntil = Date.now() + 3500; setTimeout(updateMood, 3700); }
+      batPct = p; charging = c;
+      renderBattery(); updateMood();
+    } catch (e) {}
+  }
 
-  // ----- погода (Open-Meteo, без ключа) -----
-  function wxInfo(code) {
-    if (code === 0) return ['☀️', 'Ясно'];
-    if (code <= 2) return ['🌤', 'Малооблачно'];
-    if (code === 3) return ['☁️', 'Пасмурно'];
-    if (code === 45 || code === 48) return ['🌫', 'Туман'];
-    if (code >= 51 && code <= 57) return ['🌦', 'Морось'];
-    if (code >= 61 && code <= 67) return ['🌧', 'Дождь'];
-    if (code >= 71 && code <= 77) return ['🌨', 'Снег'];
-    if (code >= 80 && code <= 82) return ['🌦', 'Ливень'];
-    if (code === 85 || code === 86) return ['🌨', 'Снегопад'];
-    if (code >= 95) return ['⛈', 'Гроза'];
+  // ---------- настроение глаз ----------
+  function updateMood() {
+    var h = new Date().getHours(), cls = 'eyes';
+    if (batPct >= 0 && batPct <= 15 && !charging) cls += ' low';
+    else if (happyUntil > Date.now()) cls += ' happy';
+    else if (h < 6) cls += ' sleepy';
+    if (playing) cls += ' music';
+    var e = $('eyes'); e.className = cls;
+  }
+  setInterval(function () {
+    var r = Math.random(), x = r < .22 ? -5 : (r < .44 ? 5 : 0);
+    $('eyes').style.setProperty('--lx', x + 'px');
+  }, 2600);
+
+  // ---------- погода (Open-Meteo, без ключа) ----------
+  function wxInfo(c) {
+    if (c === 0) return ['☀️', 'Ясно'];
+    if (c <= 2) return ['🌤', 'Малооблачно'];
+    if (c === 3) return ['☁️', 'Пасмурно'];
+    if (c === 45 || c === 48) return ['🌫', 'Туман'];
+    if (c >= 51 && c <= 57) return ['🌦', 'Морось'];
+    if (c >= 61 && c <= 67) return ['🌧', 'Дождь'];
+    if (c >= 71 && c <= 77) return ['🌨', 'Снег'];
+    if (c >= 80 && c <= 82) return ['🌦', 'Ливень'];
+    if (c === 85 || c === 86) return ['🌨', 'Снегопад'];
+    if (c >= 95) return ['⛈', 'Гроза'];
     return ['🌡', 'Погода'];
   }
-
   function loadWeather() {
     var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + LAT + '&longitude=' + LON +
-              '&current=temperature_2m,weather_code&timezone=auto';
-    fetch(url)
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        var c = j.current, w = wxInfo(c.weather_code);
-        document.getElementById('wx-temp').textContent = w[0] + ' ' + Math.round(c.temperature_2m) + '°';
-        document.getElementById('wx-desc').textContent = w[1];
-        lastWeather = Date.now();
-      })
-      .catch(function () {
-        document.getElementById('wx-desc').textContent = 'Нет сети';
-      });
+      '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto';
+    fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+      var c = j.current, w = wxInfo(c.weather_code);
+      $('wt').textContent = w[0] + ' ' + Math.round(c.temperature_2m) + '°';
+      $('wd').textContent = w[1];
+      if (j.daily) {
+        $('wr').textContent = '↑' + Math.round(j.daily.temperature_2m_max[0]) + '°  ↓' + Math.round(j.daily.temperature_2m_min[0]) + '°';
+      }
+      lastWx = Date.now();
+    }).catch(function () { $('wd').textContent = 'нет сети'; });
   }
 
-  // ----- глаза иногда смотрят по сторонам -----
-  setInterval(function () {
-    eyes.classList.remove('look-left', 'look-right');
-    var r = Math.random();
-    if (r < 0.25) eyes.classList.add('look-left');
-    else if (r < 0.5) eyes.classList.add('look-right');
-  }, 2500);
+  // ---------- музыка ----------
+  function curPos() {
+    if (!media) return 0;
+    var p = media.pos || 0;
+    if (playing) p += (Date.now() - mediaStamp) * (media.rate || 1);
+    var d = media.dur || 0;
+    if (d > 0 && p > d) p = d;
+    return p;
+  }
+  function tickProgress() {
+    if (!media) return;
+    var d = media.dur || 0, p = curPos();
+    $('pf').style.width = d > 0 ? (p / d * 100) + '%' : '0%';
+    $('tc').textContent = fmt(p);
+    $('td').textContent = d > 0 ? fmt(d) : '';
+  }
+  function renderMedia() {
+    var c = $('media');
+    if (!media) { c.style.display = 'none'; return; }
+    c.style.display = 'block';
+    var title = media.title || 'Без названия', artist = media.artist || '';
+    $('mt').textContent = title; $('ma').textContent = artist;
+    $('pt').textContent = title; $('pa').textContent = artist;
+    var art = media.art ? 'url("' + media.art + '")' : 'none';
+    $('cover').style.backgroundImage = art; $('arts').style.backgroundImage = art;
+    $('bplay').innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+    tickProgress();
+  }
+  window.onMedia = function (m) {
+    var wasPlaying = playing, oldKey = media ? (media.title + '|' + media.artist) : '';
+    media = (m && m.has) ? m : null;
+    mediaStamp = Date.now();
+    hasMedia = !!media; playing = !!(media && media.playing);
+    var key = media ? (media.title + '|' + media.artist) : '';
+    renderMedia(); applyBody(); updateMood();
+    if (S === 'open') layoutOpen();
+    else if (playing && (!wasPlaying || key !== oldKey)) peek();
+  };
+  setInterval(function () { if (S === 'open' && media) tickProgress(); }, 500);
+  function mc(cmd) { if (A()) { try { A().media(cmd); } catch (e) {} } }
 
-  tick();
+  $('bplay').addEventListener('click', function () { mc('toggle'); });
+  $('bprev').addEventListener('click', function () { mc('prev'); });
+  $('bnext').addEventListener('click', function () { mc('next'); });
+  $('cover').addEventListener('click', function () { if (A()) { try { A().openMediaApp(); } catch (e) {} } setState('collapsed'); });
+  $('pw').addEventListener('click', function (e) {
+    if (!media || !(media.dur > 0)) return;
+    var r = this.getBoundingClientRect();
+    var f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    mc('seek:' + Math.round(f * media.dur));
+    media.pos = f * media.dur; mediaStamp = Date.now(); tickProgress();
+  });
+
+  // ---------- фонарик, секундомер, громкость ----------
+  $('torch').addEventListener('click', function () {
+    var want = !torchOn, r = want;
+    if (A()) { try { r = A().torch(want); } catch (e) { r = false; } }
+    torchOn = !!r; $('torch').classList.toggle('on', torchOn);
+  });
+
+  function swTime() { return swAcc + (swRun ? Date.now() - swStart : 0); }
+  function swRender() { $('swt').textContent = fmt(swTime()); $('sw').classList.toggle('on', swRun); }
+  $('sw').addEventListener('click', function () {
+    if (swLongDone) { swLongDone = false; return; }
+    if (swRun) { swAcc += Date.now() - swStart; swRun = false; } else { swStart = Date.now(); swRun = true; }
+    swRender();
+  });
+  $('sw').addEventListener('touchstart', function () {
+    swLT = setTimeout(function () { swAcc = 0; swRun = false; swLongDone = true; swRender(); }, 650);
+  }, { passive: true });
+  ['touchend', 'touchmove', 'touchcancel'].forEach(function (n) {
+    $('sw').addEventListener(n, function () { clearTimeout(swLT); }, { passive: true });
+  });
+  setInterval(function () { if (swRun && S === 'open') swRender(); }, 250);
+
+  function volFill(v) { $('vol').style.setProperty('--p', v + '%'); }
+  $('vol').addEventListener('input', function () {
+    var v = parseInt(this.value, 10); volFill(v);
+    if (A()) { try { A().setVolume(v); } catch (e) {} }
+    armIdle();
+  });
+
+  // ---------- открытие ----------
+  function refreshOpen() {
+    tick(); pollBattery(); swRender(); renderMedia();
+    if (Date.now() - lastWx > 600000) loadWeather();
+    if (A()) { try { var v = A().getVolume(); $('vol').value = v; volFill(v); } catch (e) {} } else volFill(50);
+  }
+
+  // ---------- жесты: тап, свайп вверх/вниз ----------
+  var tx = 0, ty = 0, tTarget = null;
+  document.addEventListener('touchstart', function (e) {
+    var t = e.touches[0]; tx = t.clientX; ty = t.clientY; tTarget = e.target;
+    if (S === 'open') armIdle();
+  }, { passive: true });
+  document.addEventListener('touchend', function (e) {
+    if (tTarget && tTarget.closest && tTarget.closest('.ctl')) return;
+    var t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty;
+    if (Math.abs(dy) > 28 && Math.abs(dy) > Math.abs(dx)) { setState(dy < 0 ? 'collapsed' : 'open'); return; }
+    if (Math.abs(dx) < 16 && Math.abs(dy) < 16) {
+      if (S !== 'open') setState('open');
+      else if (ty < 46) setState('collapsed');
+    }
+  }, { passive: true });
+  // для предпросмотра на ПК/в Acode: клик мышью
+  if (!A()) {
+    document.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.ctl')) return;
+      if (S !== 'open') setState('open'); else if (e.clientY < 70) setState('collapsed');
+    });
+  }
+
+  // ---------- старт ----------
+  var sw = A() ? A().screenW() : window.innerWidth;
+  EXPW = Math.min(348, sw - 12);
+  document.documentElement.style.setProperty('--W', EXPW + 'px');
+  ICON_PLAY = ICON_PLAY; $('bplay').innerHTML = ICON_PLAY;
+  applyBody(); tick(); pollBattery(); loadWeather(); swRender(); volFill(50);
+  setInterval(pollBattery, 10000);
+  setInterval(tick, 5000);
+  setInterval(function () { updateMood(); }, 60000);
+})();
 </script>
 </body>
 </html>

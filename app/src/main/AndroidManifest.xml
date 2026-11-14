@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:allowBackup="true"
@@ -25,6 +26,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Основной хозяин острова: система сама перезапускает его после смахивания -->
+        <service
+            android:name=".IslandListener"
+            android:exported="true"
+            android:label="Искра"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- Запасной вариант, пока нет доступа к уведомлениям -->
         <service
             android:name=".IslandService"
             android:exported="false"
