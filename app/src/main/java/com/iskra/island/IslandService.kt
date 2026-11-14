@@ -136,7 +136,7 @@ class IslandService : Service() {
         web?.let {
             try {
                 wm.removeView(it)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
             }
             it.destroy()
         }
