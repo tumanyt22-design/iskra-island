@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>
+  :root {
+    --amber: #ffb300;
+    --collapsed-w: 130px;
+    --collapsed-h: 38px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; width: 100%; height: 100%;
+    background: transparent; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #eee;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  #island {
+    position: relative; margin: 0 auto; overflow: hidden;
+    width: var(--collapsed-w); height: var(--collapsed-h);
+    background: #000; border-radius: 19px;
+    transition: width .28s cubic-bezier(.3,1.2,.4,1), height .28s cubic-bezier(.3,1.2,.4,1), border-radius .28s;
+  }
+  #island.open { width: 100%; height: 100%; border-radius: 30px; }
+
+  /* Глаза всегда сверху по центру */
+  .eyes {
+    position: absolute; top: 0; left: 0; right: 0; height: var(--collapsed-h);
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+  }
+  .eye {
+    width: 9px; height: 16px; border-radius: 6px;
+    background: var(--amber); box-shadow: 0 0 8px #ffb300aa;
+    animation: blink 5s infinite;
+    transition: transform .25s;
+  }
+  .look-left .eye  { transform: translateX(-5px); }
+  .look-right .eye { transform: translateX(5px); }
+  @keyframes blink { 0%, 93%, 100% { height: 16px; } 96% { height: 2px; } }
+
+  .content {
+    position: absolute; inset: 0; padding: 46px 20px 14px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .15s;
+  }
+  #island.open .content { opacity: 1; pointer-events: auto; transition: opacity .25s .12s; }
+
+  .time { font-size: 44px; font-weight: 600; line-height: 1; text-align: center; letter-spacing: 1px; }
+  .date { font-size: 13px; color: #999; text-align: center; margin-top: 4px; text-transform: capitalize; }
+
+  .row { display: flex; gap: 10px; margin-top: 14px; }
+  .card {
+    flex: 1; background: #15171b; border-radius: 16px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .card .big { font-size: 22px; font-weight: 600; }
+  .card .small { font-size: 12px; color: #999; }
+  .bat-bar { height: 5px; border-radius: 3px; background: #2a2d33; margin-top: 4px; overflow: hidden; }
+  .bat-fill { height: 100%; width: 0; background: var(--amber); transition: width .4s; }
+
+  .off {
+    position: absolute; bottom: 8px; right: 16px; font-size: 11px; color: #555;
+    padding: 4px 6px;
+  }
+</style>
+</head>
+<body>
+
+<div id="island">
+  <div class="eyes" id="eyes"><div class="eye"></div><div class="eye"></div></div>
+
+  <div class="content">
+    <div class="time" id="time">--:--</div>
+    <div class="date" id="date"></div>
+
+    <div class="row">
+      <div class="card">
+        <div class="big" id="wx-temp">…</div>
+        <div class="small" id="wx-desc">Погода</div>
+      </div>
+      <div class="card">
+        <div class="big" id="bat-pct">…</div>
+        <div class="small" id="bat-state">Батарея</div>
+        <div class="bat-bar"><div class="bat-fill" id="bat-fill"></div></div>
+      </div>
+    </div>
+
+    <div class="off" id="off">выключить</div>
+  </div>
+</div>
+
+<script>
+  // ===== НАСТРОЙКИ =====
+  // Координаты для погоды (по умолчанию Самарканд). Поменяй на свой город.
+  var LAT = 39.6542, LON = 66.9597;
+  // ======================
+
+  var island = document.getElementById('island');
+  var eyes = document.getElementById('eyes');
+  var isOpen = false, collapseTimer = null, lastWeather = 0;
+
+  function native(name, arg) {
+    try { if (window.Android && Android[name]) return Android[name](arg); } catch (e) {}
+    return null;
+  }
+
+  function setOpen(v) {
+    if (v === isOpen) return;
+    isOpen = v;
+    clearTimeout(collapseTimer);
+    if (v) {
+      native('setExpanded', true);
+      setTimeout(function () { island.classList.add('open'); }, 50);
+      tick(); updateBattery();
+      if (Date.now() - lastWeather > 10 * 60 * 1000) loadWeather();
+    } else {
+      island.classList.remove('open');
+      collapseTimer = setTimeout(function () { native('setExpanded', false); }, 320);
+    }
+  }
+
+  island.addEventListener('click', function () { setOpen(!isOpen); });
+  document.getElementById('off').addEventListener('click', function (e) {
+    e.stopPropagation(); native('quit');
+  });
+
+  // ----- время -----
+  function tick() {
+    var d = new Date();
+    document.getElementById('time').textContent =
+      d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('date').textContent =
+      d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+  setInterval(function () { if (isOpen) tick(); }, 1000);
+
+  // ----- батарея -----
+  function updateBattery() {
+    var r = native('battery');
+    if (!r) return;
+    var p = r.split(','), pct = parseInt(p[0], 10), charging = p[1] === 'true';
+    document.getElementById('bat-pct').textContent = pct >= 0 ? pct + '%' : '—';
+    document.getElementById('bat-state').textContent = charging ? 'Заряжается ⚡' : 'Батарея';
+    document.getElementById('bat-fill').style.width = Math.max(0, pct) + '%';
+  }
+  setInterval(function () { if (isOpen) updateBattery(); }, 15000);
+
+  // ----- погода (Open-Meteo, без ключа) -----
+  function wxInfo(code) {
+    if (code === 0) return ['☀️', 'Ясно'];
+    if (code <= 2) return ['🌤', 'Малооблачно'];
+    if (code === 3) return ['☁️', 'Пасмурно'];
+    if (code === 45 || code === 48) return ['🌫', 'Туман'];
+    if (code >= 51 && code <= 57) return ['🌦', 'Морось'];
+    if (code >= 61 && code <= 67) return ['🌧', 'Дождь'];
+    if (code >= 71 && code <= 77) return ['🌨', 'Снег'];
+    if (code >= 80 && code <= 82) return ['🌦', 'Ливень'];
+    if (code === 85 || code === 86) return ['🌨', 'Снегопад'];
+    if (code >= 95) return ['⛈', 'Гроза'];
+    return ['🌡', 'Погода'];
+  }
+
+  function loadWeather() {
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + LAT + '&longitude=' + LON +
+              '&current=temperature_2m,weather_code&timezone=auto';
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var c = j.current, w = wxInfo(c.weather_code);
+        document.getElementById('wx-temp').textContent = w[0] + ' ' + Math.round(c.temperature_2m) + '°';
+        document.getElementById('wx-desc').textContent = w[1];
+        lastWeather = Date.now();
+      })
+      .catch(function () {
+        document.getElementById('wx-desc').textContent = 'Нет сети';
+      });
+  }
+
+  // ----- глаза иногда смотрят по сторонам -----
+  setInterval(function () {
+    eyes.classList.remove('look-left', 'look-right');
+    var r = Math.random();
+    if (r < 0.25) eyes.classList.add('look-left');
+    else if (r < 0.5) eyes.classList.add('look-right');
+  }, 2500);
+
+  tick();
+</script>
+</body>
+</html>
