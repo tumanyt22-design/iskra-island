@@ -1,6 +1,5 @@
 package com.iskra.island
 
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -20,10 +19,15 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.PathInterpolator
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import kotlin.math.abs
 
 /**
  * Рисует остров поверх всех приложений. Один экземпляр на весь процесс.
@@ -37,14 +41,20 @@ object IslandController {
 
     private const val COLLAPSED_W = 168
     private const val COLLAPSED_H = 44
+    private const val VIS_H = 340   // высота окна с рисунком, dp (не меняется)
 
     private var owner: Any? = null
     private var ctx: Context? = null
     private var wm: WindowManager? = null
     private var lp: WindowManager.LayoutParams? = null
+    private var clp: WindowManager.LayoutParams? = null
     private var web: WebView? = null
+    private var catcher: View? = null
+    private var visW = 324
     private var loaded = false
-    private var anim: ValueAnimator? = null
+    private var downX = 0f
+    private var downY = 0f
+    private var longFired = false
     private var lastMediaJson: String = "{\"has\":false}"
     private val ui = Handler(Looper.getMainLooper())
 
@@ -119,27 +129,60 @@ object IslandController {
                 js("window.onMedia && window.onMedia($lastMediaJson)")
             }
         }
-        w.setOnTouchListener { _, e ->
-            if (e.action == MotionEvent.ACTION_OUTSIDE) {
-                js("window.onOutside && window.onOutside()")
-            }
-            false
-        }
-
         val html = context.assets.open("island.html").bufferedReader().use { it.readText() }
         w.loadDataWithBaseURL("https://iskra.local/", html, "text/html", "UTF-8", null)
 
+        val dm = context.resources.displayMetrics
+        val expW = minOf(324, (dm.widthPixels / dm.density).toInt() - 16)
+        visW = expW
+        val base = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+
+        // Окно с рисунком: большое, не меняет размер и не ловит нажатия. Вся анимация внутри страницы.
         val p = WindowManager.LayoutParams(
-            dp(COLLAPSED_W),
-            dp(COLLAPSED_H),
+            dp(expW), dp(VIS_H),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            base or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         )
+        placeTop(p)
+
+        // Невидимое окно-ловец нажатий ровно по размеру острова: остальной экран остаётся нажимаемым.
+        val cv = View(context)
+        cv.setOnTouchListener { _, e -> onCatch(e) }
+        val cp = WindowManager.LayoutParams(
+            dp(COLLAPSED_W), dp(COLLAPSED_H),
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            base or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            PixelFormat.TRANSLUCENT
+        )
+        placeTop(cp)
+
+        try {
+            manager.addView(w, p)
+            manager.addView(cv, cp)
+        } catch (e: Exception) {
+            try {
+                manager.removeView(w)
+            } catch (e2: Exception) {
+            }
+            try {
+                w.destroy()
+            } catch (e3: Exception) {
+            }
+            owner = null
+            return
+        }
+        wm = manager
+        lp = p
+        clp = cp
+        web = w
+        catcher = cv
+    }
+
+    private fun placeTop(p: WindowManager.LayoutParams) {
         p.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
         p.y = dp(TOP_MARGIN)
         if (Build.VERSION.SDK_INT >= 30) {
@@ -147,25 +190,59 @@ object IslandController {
         } else if (Build.VERSION.SDK_INT >= 28) {
             p.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
+    }
 
-        try {
-            manager.addView(w, p)
-        } catch (e: Exception) {
-            owner = null
-            try {
-                w.destroy()
-            } catch (e2: Exception) {
+    private fun density(): Float = ctx?.resources?.displayMetrics?.density ?: 3f
+
+    private val longRun = Runnable {
+        longFired = true
+        val d = density()
+        js("window.onLong && window.onLong(${downX / d}, ${downY / d})")
+    }
+
+    /** Нажатия по невидимому окну пересылаются в страницу: тап, свайп, долгое нажатие. */
+    private fun onCatch(e: MotionEvent): Boolean {
+        val d = density()
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = e.x
+                downY = e.y
+                longFired = false
+                ui.postDelayed(longRun, 650)
             }
-            return
+            MotionEvent.ACTION_MOVE -> {
+                if (abs(e.x - downX) > 10 * d || abs(e.y - downY) > 10 * d) ui.removeCallbacks(longRun)
+            }
+            MotionEvent.ACTION_UP -> {
+                ui.removeCallbacks(longRun)
+                if (!longFired) {
+                    val dx = (e.x - downX) / d
+                    val dy = (e.y - downY) / d
+                    if (abs(dy) > 28f && abs(dy) > abs(dx)) {
+                        js("window.onSwipe && window.onSwipe(${if (dy < 0) -1 else 1})")
+                    } else if (abs(dx) < 16f && abs(dy) < 16f) {
+                        js("window.onTap && window.onTap(${e.x / d}, ${e.y / d})")
+                    }
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> ui.removeCallbacks(longRun)
+            MotionEvent.ACTION_OUTSIDE -> {
+                js("window.onOutside && window.onOutside()")
+                return false
+            }
         }
-        wm = manager
-        lp = p
-        web = w
+        return true
     }
 
     private fun removeNow() {
-        anim?.cancel()
-        anim = null
+        ui.removeCallbacks(longRun)
+        val cv = catcher
+        if (cv != null) {
+            try {
+                wm?.removeView(cv)
+            } catch (e: Exception) {
+            }
+        }
         val v = web
         if (v != null) {
             try {
@@ -177,51 +254,87 @@ object IslandController {
             } catch (e: Exception) {
             }
         }
+        catcher = null
         web = null
         loaded = false
         owner = null
     }
 
-    private fun animateTo(wd: Int, hd: Int, ms: Long) {
-        val v = web ?: return
-        val p = lp ?: return
+    /** Меняется только невидимое окно-ловец: окно с рисунком остаётся как есть. */
+    private fun resizeCatcher(wd: Int, hd: Int) {
+        val v = catcher ?: return
+        val p = clp ?: return
         val m = wm ?: return
-        val c = ctx ?: return
-        val maxW = c.resources.displayMetrics.widthPixels - dp(8)
-        val tw = minOf(dp(wd), maxW)
-        val th = dp(hd)
-        val fw = p.width
-        val fh = p.height
-        anim?.cancel()
-        if (fw == tw && fh == th) return
-        if (ms <= 0L) {
-            p.width = tw
-            p.height = th
-            try {
-                m.updateViewLayout(v, p)
-            } catch (e: Exception) {
-            }
-            return
+        p.width = dp(minOf(wd, visW))
+        p.height = dp(hd)
+        try {
+            m.updateViewLayout(v, p)
+        } catch (e: Exception) {
         }
-        val a = ValueAnimator.ofFloat(0f, 1f)
-        a.duration = ms
-        a.interpolator = PathInterpolator(0.2f, 0.9f, 0.2f, 1f)
-        a.addUpdateListener { va ->
-            val f = va.animatedValue as Float
-            p.width = (fw + (tw - fw) * f).toInt()
-            p.height = (fh + (th - fh) * f).toInt()
-            try {
-                m.updateViewLayout(v, p)
-            } catch (e: Exception) {
+    }
+
+    // ---------- тексты песен (lrclib.net, без ключа) ----------
+
+    private fun httpGet(u: String): String? {
+        val c = URL(u).openConnection() as HttpURLConnection
+        c.connectTimeout = 6000
+        c.readTimeout = 8000
+        c.setRequestProperty("User-Agent", "IskraIsland/0.4")
+        return try {
+            if (c.responseCode == 200) c.inputStream.bufferedReader().use { it.readText() } else null
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    private fun lrcAttempt(title: String, artist: String, dur: Int): String {
+        val t = URLEncoder.encode(title, "UTF-8")
+        val a = URLEncoder.encode(artist, "UTF-8")
+        val extra = if (dur > 0) "&duration=$dur" else ""
+        val g = httpGet("https://lrclib.net/api/get?track_name=$t&artist_name=$a$extra")
+        if (g != null) {
+            val s = JSONObject(g).optString("syncedLyrics", "")
+            if (s.isNotBlank() && s != "null") return s
+        }
+        val sr = httpGet("https://lrclib.net/api/search?track_name=$t&artist_name=$a")
+        if (sr != null) {
+            val arr = JSONArray(sr)
+            for (i in 0 until arr.length()) {
+                val s = arr.getJSONObject(i).optString("syncedLyrics", "")
+                if (s.isNotBlank() && s != "null") return s
             }
         }
-        anim = a
-        a.start()
+        return ""
+    }
+
+    private fun findLrc(title: String, artist: String, dur: Int): String {
+        val cleanTitle = title.replace(Regex("\\(.*?\\)|\\[.*?\\]"), "").trim()
+        val firstArtist = artist.split(Regex("\\s*[,&]\\s*|\\s+feat\\.?\\s+"))[0].trim()
+        var r = lrcAttempt(title, artist, dur)
+        if (r.isEmpty() && (cleanTitle != title || firstArtist != artist)) {
+            r = lrcAttempt(cleanTitle.ifEmpty { title }, firstArtist.ifEmpty { artist }, dur)
+        }
+        return r
     }
 
     // ---------- мост для island.html: Android.xxx() ----------
 
     class Bridge {
+        @JavascriptInterface
+        fun fetchLyrics(key: String, title: String, artist: String, durSec: Int) {
+            Thread {
+                var lrc = ""
+                try {
+                    lrc = findLrc(title, artist, durSec)
+                } catch (e: Exception) {
+                }
+                val o = JSONObject()
+                o.put("key", key)
+                o.put("lrc", lrc)
+                js("window.onLyrics && window.onLyrics(" + o.toString() + ")")
+            }.start()
+        }
+
         @JavascriptInterface
         fun screenW(): Int {
             val c = ctx ?: return 360
@@ -231,7 +344,7 @@ object IslandController {
 
         @JavascriptInterface
         fun setSize(w: Int, h: Int, ms: Int) {
-            ui.post { animateTo(w, h, ms.toLong()) }
+            ui.post { resizeCatcher(w, h) }
         }
 
         /** "процент,заряжается", например "87,true" */

@@ -6,10 +6,9 @@
 <style>
   :root {
     --c: #ffb300;
-    --card: #131417;
     --tx: #f4f4f5;
     --mu: #8b8e95;
-    --W: 340px;
+    --W: 324px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -21,11 +20,15 @@
 
   /* Остров заполняет окно: размером окна управляет Android (плавная анимация) */
   #island {
-    position: absolute; inset: 0; background: #000; overflow: hidden;
-    border-radius: 22px; transition: border-radius .3s;
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: var(--iw, 168px); height: var(--ih, 44px); overflow: hidden; border-radius: 22px;
+    background: radial-gradient(130% 100% at 50% -20%, #1c1608 0%, #050403 55%, #000 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.07), inset 0 1px 0 rgba(255,179,0,.18);
+    transition: width .46s cubic-bezier(.32,.72,0,1), height .46s cubic-bezier(.32,.72,0,1), border-radius .46s cubic-bezier(.32,.72,0,1);
   }
   body.s-peek #island { border-radius: 26px; }
-  body.s-open #island { border-radius: 34px; }
+  body.s-open #island { border-radius: 30px; }
+  body.subs.s-collapsed #island { border-radius: 26px; }
 
   /* ===== верхняя полоса 44px: арт | глаза | эквалайзер ===== */
   .bar { position: absolute; top: 0; left: 0; right: 0; height: 44px; }
@@ -36,7 +39,7 @@
   }
   .eye {
     width: 9px; height: 17px; border-radius: 6px; background: var(--c);
-    box-shadow: 0 0 9px rgba(255,179,0,.65);
+    box-shadow: 0 0 10px rgba(255,179,0,.7), 0 0 22px rgba(255,179,0,.25);
     animation: blink 5s infinite;
     transition: height .3s, width .3s, background .3s, box-shadow .3s;
   }
@@ -45,7 +48,6 @@
   .music .eye { animation: blink 5s infinite, bob .8s ease-in-out infinite alternate; }
   .music .eye + .eye { animation-delay: 0s, -.25s; }
 
-  /* настроения глаз */
   .happy .eye {
     animation: none; height: 8px; width: 16px; background: none; box-shadow: none;
     border-top: 4px solid var(--c); border-radius: 16px 16px 0 0; margin-top: -2px;
@@ -53,12 +55,13 @@
   .sleepy .eye { animation: none; height: 6px; width: 11px; opacity: .8; }
   .low .eye {
     animation: none; height: 8px; width: 11px; background: #ff5a4d;
-    box-shadow: 0 0 9px rgba(255,90,77,.6);
+    box-shadow: 0 0 10px rgba(255,90,77,.7);
   }
 
   .art-s {
     position: absolute; left: 11px; top: 9px; width: 26px; height: 26px; border-radius: 8px;
     background: #222 center / cover no-repeat; opacity: 0; transform: scale(.6);
+    box-shadow: 0 0 10px rgba(255,179,0,.25);
     transition: opacity .3s, transform .3s;
   }
   body.has-media:not(.s-open) .art-s { opacity: 1; transform: none; }
@@ -67,7 +70,7 @@
     position: absolute; right: 15px; top: 14px; height: 16px; display: flex;
     align-items: flex-end; gap: 2px; opacity: 0; transition: opacity .3s;
   }
-  .eq i { width: 3px; height: 4px; border-radius: 2px; background: var(--c); }
+  .eq i { width: 3px; height: 4px; border-radius: 2px; background: var(--c); box-shadow: 0 0 6px rgba(255,179,0,.6); }
   body.playing .eq { opacity: 1; }
   body.playing .eq i { animation: eq .9s ease-in-out infinite alternate; }
   .eq i:nth-child(2) { animation-delay: -.3s; }
@@ -75,7 +78,7 @@
   .eq i:nth-child(4) { animation-delay: -.15s; }
   @keyframes eq { from { height: 3px; } to { height: 15px; } }
 
-  /* ===== «подглядывание» при старте музыки ===== */
+  /* ===== подглядывание при старте музыки ===== */
   .peek {
     position: absolute; top: 44px; left: 0; right: 0; padding: 0 20px; text-align: center;
     opacity: 0; transition: opacity .15s;
@@ -84,80 +87,95 @@
   .pt { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pa { font-size: 11px; color: var(--mu); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+  /* ===== субтитры в свёрнутом острове ===== */
+  .sub {
+    position: absolute; top: 43px; left: 0; right: 0; height: 22px; padding: 0 18px; text-align: center;
+    font-size: 12.5px; color: #ffe3a3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    opacity: 0; transition: opacity .3s;
+  }
+  body.subs.s-collapsed .sub { opacity: 1; transition: opacity .3s .15s; }
+  .in { animation: lin .35s ease-out; }
+  @keyframes lin { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
   /* ===== раскрытая шторка ===== */
   .content {
     position: absolute; top: 44px; left: 50%; width: var(--W); transform: translateX(-50%);
-    padding: 0 14px 14px; opacity: 0; pointer-events: none; transition: opacity .15s;
+    padding: 0 12px 12px; opacity: 0; pointer-events: none; transition: opacity .18s; will-change: opacity;
   }
   body.s-open .content { opacity: 1; pointer-events: auto; transition: opacity .3s .1s; }
 
-  .hd { display: flex; align-items: flex-end; justify-content: space-between; padding: 0 6px 14px; }
-  .time { font-size: 46px; font-weight: 600; line-height: 1; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
-  .date { font-size: 12px; color: var(--mu); margin-top: 7px; }
+  .hd { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 10px; }
+  .time { font-size: 38px; font-weight: 600; line-height: 1; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .date { font-size: 11px; color: var(--mu); margin-top: 5px; }
   .wx { text-align: right; }
-  .wx .t { font-size: 24px; font-weight: 600; line-height: 1; white-space: nowrap; }
-  .wx .d { font-size: 12px; color: var(--mu); margin-top: 6px; }
-  .wx .r { font-size: 11px; color: #5d6068; margin-top: 2px; }
+  .wx .t { font-size: 20px; font-weight: 600; line-height: 1; white-space: nowrap; }
+  .wx .r { font-size: 11px; color: var(--mu); margin-top: 5px; white-space: nowrap; }
+  .hr { height: 1px; margin: 0 6px 10px; background: linear-gradient(90deg, transparent, rgba(255,179,0,.4), transparent); }
 
-  .media { display: none; background: var(--card); border-radius: 22px; padding: 11px 12px 8px; margin-bottom: 8px; }
-  .mrow { display: flex; align-items: center; gap: 11px; }
-  .cover { width: 48px; height: 48px; border-radius: 13px; background: #24262b center / cover no-repeat; flex: none; }
+  .media {
+    display: none; position: relative; overflow: hidden; border-radius: 20px; padding: 10px 11px 8px; margin-bottom: 8px;
+    background: linear-gradient(180deg, #17181c, #0e0f12); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .media::before {
+    content: ''; position: absolute; inset: -24px; background: var(--art, none) center / cover;
+    filter: blur(16px) saturate(1.5); opacity: .38; pointer-events: none;
+  }
+  .media > * { position: relative; }
+  .mrow { display: flex; align-items: center; gap: 10px; }
+  .cover { width: 40px; height: 40px; border-radius: 11px; background: #24262b center / cover no-repeat; flex: none; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
   .mtxt { flex: 1; min-width: 0; }
-  .mt { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ma { font-size: 12px; color: var(--mu); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .btns { display: flex; gap: 2px; flex: none; align-items: center; }
+  .mt { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ma { font-size: 11px; color: #b9bcc3; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .btns { display: flex; gap: 0; flex: none; align-items: center; }
   .btn {
-    width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; background: none; color: #fff;
+    width: 30px; height: 30px; border-radius: 50%; border: 0; padding: 0; background: none; color: #fff;
     display: flex; align-items: center; justify-content: center;
   }
-  .btn svg { width: 18px; height: 18px; }
-  .btn.main { background: #fff; color: #000; }
+  .btn svg { width: 16px; height: 16px; }
+  .btn.main { width: 34px; height: 34px; background: #fff; color: #000; box-shadow: 0 0 14px rgba(255,255,255,.25); }
   .btn:active { opacity: .6; }
-  .pw { padding: 9px 0 5px; }
-  .prog { height: 4px; background: #2a2c31; border-radius: 2px; overflow: hidden; }
-  .pf { height: 100%; width: 0; background: #fff; border-radius: 2px; }
-  .times { display: flex; justify-content: space-between; font-size: 10px; color: var(--mu); font-variant-numeric: tabular-nums; }
+
+  .ly {
+    display: none; margin-top: 8px; font-size: 12.5px; text-align: center; color: #ffe3a3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 17px;
+  }
+  .media.hasly .ly { display: block; }
+  .pw { padding: 8px 0 4px; }
+  .prog { height: 3px; background: rgba(255,255,255,.14); border-radius: 2px; overflow: visible; }
+  .pf { height: 100%; width: 0; border-radius: 2px; background: linear-gradient(90deg, #ffb300, #ffd76a); box-shadow: 0 0 8px rgba(255,179,0,.7); }
+  .times { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #b9bcc3; font-variant-numeric: tabular-nums; }
+  .cc {
+    font-size: 10px; font-weight: 700; letter-spacing: .5px; padding: 3px 9px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.2); color: #b9bcc3;
+  }
+  .cc.on { color: #000; background: var(--c); border-color: var(--c); box-shadow: 0 0 10px rgba(255,179,0,.4); }
 
   .row { display: flex; gap: 8px; }
-  .row + .row { margin-top: 8px; }
   .tile {
-    background: var(--card); border-radius: 20px; padding: 10px 14px; min-height: 52px;
-    display: flex; align-items: center; gap: 10px;
+    border-radius: 16px; padding: 8px 12px; height: 42px; display: flex; align-items: center; gap: 8px;
+    background: linear-gradient(180deg, #17181c, #0e0f12); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
   }
-  .tile.bat { flex: 1.4; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; }
-  .bat .top { display: flex; justify-content: space-between; align-items: baseline; }
-  .bat .p { font-size: 20px; font-weight: 600; }
-  .bat .s { font-size: 12px; }
-  .bar2 { height: 5px; border-radius: 3px; background: #2a2c31; overflow: hidden; }
-  .bf { height: 100%; width: 0; background: var(--c); border-radius: 3px; transition: width .4s, background .3s; }
-  .bf.low { background: #ff5a4d; }
-
-  .tile.sq { flex: .7; justify-content: center; padding: 10px; color: #fff; }
-  .tile.sq svg { width: 22px; height: 22px; }
-  .tile.on { background: var(--c); color: #000; }
-  .tile.sw { flex: 1; flex-direction: column; align-items: flex-start; gap: 2px; justify-content: center; }
-  .sw .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .sw .l { font-size: 10px; color: var(--mu); }
-  .tile.sw.on { background: var(--card); }
-  .tile.sw.on .v { color: var(--c); }
   .tile:active { opacity: .75; }
+  .tile.bat { flex: 1.5; flex-direction: column; align-items: stretch; justify-content: center; gap: 5px; }
+  .bat .top { display: flex; justify-content: space-between; align-items: baseline; line-height: 1; }
+  .bat .p { font-size: 15px; font-weight: 600; }
+  .bat .s { font-size: 10px; }
+  .bar2 { height: 4px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
+  .bf { height: 100%; width: 0; border-radius: 2px; background: var(--c); box-shadow: 0 0 6px rgba(255,179,0,.6); transition: width .4s, background .3s; }
+  .bf.low { background: #ff5a4d; box-shadow: 0 0 6px rgba(255,90,77,.6); }
 
-  .tile.volt { flex: 1; }
-  .volt svg { width: 20px; height: 20px; color: var(--mu); flex: none; }
-  input[type=range] {
-    -webkit-appearance: none; appearance: none; flex: 1; height: 6px; border-radius: 3px; outline: none; margin: 0;
-    background: linear-gradient(to right, var(--c) var(--p, 50%), #2a2c31 var(--p, 50%));
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff;
-  }
+  .tile.sq { flex: .6; justify-content: center; padding: 0; color: #fff; }
+  .tile.sq svg { width: 20px; height: 20px; }
+  .tile.on { background: var(--c); color: #000; box-shadow: 0 0 16px rgba(255,179,0,.4); }
+  .tile.sw { flex: 1; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; }
+  .sw .v { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+  .sw .l { font-size: 9px; color: var(--mu); line-height: 1; }
+  .tile.sw.on { background: linear-gradient(180deg, #17181c, #0e0f12); }
+  .tile.sw.on .v { color: var(--c); }
 
   /* предпросмотр в браузере Acode (без Android) */
   body.preview { background: #2b2d31; }
-  body.preview #island {
-    inset: auto; left: 50%; top: 12px; transform: translateX(-50%); width: 168px; height: 44px;
-    transition: border-radius .3s, width .3s, height .3s;
-  }
+  body.preview #island { top: 12px; }
 </style>
 </head>
 <body class="s-collapsed">
@@ -170,6 +188,7 @@
   </div>
 
   <div class="peek"><div class="pt" id="pt"></div><div class="pa" id="pa"></div></div>
+  <div class="sub" id="sub"></div>
 
   <div class="content" id="content">
     <div class="hd">
@@ -179,10 +198,10 @@
       </div>
       <div class="wx">
         <div class="t" id="wt">…</div>
-        <div class="d" id="wd">погода</div>
         <div class="r" id="wr"></div>
       </div>
     </div>
+    <div class="hr"></div>
 
     <div class="media" id="media">
       <div class="mrow">
@@ -194,8 +213,9 @@
           <button class="btn ctl" id="bnext"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18V6l8.5 6z"/></svg></button>
         </div>
       </div>
+      <div class="ly" id="ly"></div>
       <div class="pw ctl" id="pw"><div class="prog"><div class="pf" id="pf"></div></div></div>
-      <div class="times"><span id="tc">0:00</span><span id="td"></span></div>
+      <div class="times"><span id="tc">0:00</span><span class="cc ctl" id="cc">Тт</span><span id="td"></span></div>
     </div>
 
     <div class="row">
@@ -206,12 +226,6 @@
       <div class="tile sq ctl" id="torch"><svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg></div>
       <div class="tile sw ctl" id="sw"><span class="v" id="swt">0:00</span><span class="l">секундомер</span></div>
     </div>
-    <div class="row">
-      <div class="tile volt">
-        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4-.9 7-4.5 7-8.8s-3-7.9-7-8.8z"/></svg>
-        <input class="ctl" id="vol" type="range" min="0" max="100" value="50">
-      </div>
-    </div>
   </div>
 </div>
 
@@ -219,15 +233,18 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var LAT = 39.6542, LON = 66.9597;       // координаты для погоды (Самарканд). Поменяй на свой город.
-  var COL_W = 168, COL_H = 44;
+  var COL_W = 168, COL_H = 44, SUB_H = 68;
   var ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
   var ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
 
-  var S = 'collapsed', EXPW = 340;
+  var S = 'collapsed', EXPW = 324, subMode = false;
   var media = null, hasMedia = false, playing = false, mediaStamp = 0;
+  var lyr = null, lyrKey = '', lastLine = null;
+  var subsOn = true;
+  try { subsOn = localStorage.getItem('subs') !== '0'; } catch (e) {}
   var batPct = -1, charging = false, happyUntil = 0, lastWx = 0;
   var peekT = null, idleT = null;
-  var swRun = false, swStart = 0, swAcc = 0, swLT = null, swLongDone = false, torchOn = false;
+  var swRun = false, swStart = 0, swAcc = 0, torchOn = false;
 
   function A() { return window.Android; }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -239,17 +256,21 @@
   }
 
   // ---------- размеры окна ----------
-  function setSize(w, h, ms) {
-    w = Math.round(w); h = Math.round(h);
-    if (A()) { try { A().setSize(w, h, ms); } catch (e) {} }
-    else { var i = $('island'); i.style.width = w + 'px'; i.style.height = h + 'px'; }
+  var curW = 168, curH = 44, winW = 324;
+  function setSize(w, h) {
+    w = Math.round(w); h = Math.round(h); curW = w; curH = h;
+    var r = document.documentElement.style;
+    r.setProperty('--iw', w + 'px'); r.setProperty('--ih', h + 'px');
+    if (A()) { try { A().setSize(w, h, 0); } catch (e) {} }   // меняется только невидимое окно-ловец
   }
-  function layoutOpen() {
-    var h = 44 + $('content').offsetHeight + 4;
-    setSize(EXPW, h, 320);
+  function collapsedSize() {
+    if (subMode) setSize(Math.min(EXPW, 300), SUB_H);
+    else setSize(COL_W, COL_H);
   }
+  function layoutOpen() { setSize(EXPW, 44 + $('content').offsetHeight + 2); }
   function applyBody() {
-    document.body.className = 's-' + S + (hasMedia ? ' has-media' : '') + (playing ? ' playing' : '') + (A() ? '' : ' preview');
+    document.body.className = 's-' + S + (hasMedia ? ' has-media' : '') + (playing ? ' playing' : '') +
+      (subMode ? ' subs' : '') + (A() ? '' : ' preview');
   }
 
   // ---------- состояния: collapsed / peek / open ----------
@@ -261,8 +282,8 @@
     clearTimeout(idleT);
     if (s === S && s !== 'open') return;
     S = s; applyBody();
-    if (s === 'collapsed') { clearTimeout(peekT); setSize(COL_W, COL_H, 260); }
-    else if (s === 'peek') { setSize(Math.min(EXPW, 300), 78, 300); }
+    if (s === 'collapsed') { clearTimeout(peekT); collapsedSize(); }
+    else if (s === 'peek') { setSize(Math.min(EXPW, 300), 74); }
     else {
       clearTimeout(peekT);
       refreshOpen(); layoutOpen(); armIdle();
@@ -277,6 +298,14 @@
   }
   window.onOutside = function () { if (S !== 'collapsed') setState('collapsed'); };
 
+  // субтитры в свёрнутом виде: включены, музыка играет и текст найден
+  function updateSub() {
+    var want = !!(subsOn && playing && lyr && lyr.length);
+    if (want === subMode) return;
+    subMode = want; applyBody();
+    if (S === 'collapsed') collapsedSize();
+  }
+
   // ---------- время ----------
   function tick() {
     var d = new Date();
@@ -288,8 +317,8 @@
   function renderBattery() {
     var low = batPct >= 0 && batPct <= 15 && !charging;
     $('bp').textContent = batPct >= 0 ? batPct + '%' : '—';
-    $('bs').textContent = charging ? '⚡ заряжается' : '';
-    $('bs').style.color = charging ? 'var(--c)' : '';
+    $('bs').textContent = charging ? '⚡' : '';
+    $('bs').style.color = 'var(--c)';
     $('bf').style.width = Math.max(0, batPct) + '%';
     $('bf').className = 'bf' + (low ? ' low' : '');
   }
@@ -311,7 +340,7 @@
     else if (happyUntil > Date.now()) cls += ' happy';
     else if (h < 6) cls += ' sleepy';
     if (playing) cls += ' music';
-    var e = $('eyes'); e.className = cls;
+    $('eyes').className = cls;
   }
   setInterval(function () {
     var r = Math.random(), x = r < .22 ? -5 : (r < .44 ? 5 : 0);
@@ -319,32 +348,74 @@
   }, 2600);
 
   // ---------- погода (Open-Meteo, без ключа) ----------
-  function wxInfo(c) {
-    if (c === 0) return ['☀️', 'Ясно'];
-    if (c <= 2) return ['🌤', 'Малооблачно'];
-    if (c === 3) return ['☁️', 'Пасмурно'];
-    if (c === 45 || c === 48) return ['🌫', 'Туман'];
-    if (c >= 51 && c <= 57) return ['🌦', 'Морось'];
-    if (c >= 61 && c <= 67) return ['🌧', 'Дождь'];
-    if (c >= 71 && c <= 77) return ['🌨', 'Снег'];
-    if (c >= 80 && c <= 82) return ['🌦', 'Ливень'];
-    if (c === 85 || c === 86) return ['🌨', 'Снегопад'];
-    if (c >= 95) return ['⛈', 'Гроза'];
-    return ['🌡', 'Погода'];
+  function wxIcon(c) {
+    if (c === 0) return '☀️';
+    if (c <= 2) return '🌤';
+    if (c === 3) return '☁️';
+    if (c === 45 || c === 48) return '🌫';
+    if (c >= 51 && c <= 57) return '🌦';
+    if (c >= 61 && c <= 67) return '🌧';
+    if (c >= 71 && c <= 77) return '🌨';
+    if (c >= 80 && c <= 82) return '🌦';
+    if (c === 85 || c === 86) return '🌨';
+    if (c >= 95) return '⛈';
+    return '🌡';
   }
   function loadWeather() {
     var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + LAT + '&longitude=' + LON +
       '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto';
     fetch(url).then(function (r) { return r.json(); }).then(function (j) {
-      var c = j.current, w = wxInfo(c.weather_code);
-      $('wt').textContent = w[0] + ' ' + Math.round(c.temperature_2m) + '°';
-      $('wd').textContent = w[1];
-      if (j.daily) {
-        $('wr').textContent = '↑' + Math.round(j.daily.temperature_2m_max[0]) + '°  ↓' + Math.round(j.daily.temperature_2m_min[0]) + '°';
-      }
+      var c = j.current;
+      $('wt').textContent = wxIcon(c.weather_code) + ' ' + Math.round(c.temperature_2m) + '°';
+      if (j.daily) $('wr').textContent = '↑' + Math.round(j.daily.temperature_2m_max[0]) + '°  ↓' + Math.round(j.daily.temperature_2m_min[0]) + '°';
       lastWx = Date.now();
-    }).catch(function () { $('wd').textContent = 'нет сети'; });
+    }).catch(function () { $('wr').textContent = 'нет сети'; });
   }
+
+  // ---------- тексты песен ----------
+  function parseLrc(t) {
+    var out = [];
+    (t || '').split('\n').forEach(function (l) {
+      var m = l.match(/^\s*((?:\[\d+:\d+(?:\.\d+)?\])+)\s*(.*)$/);
+      if (!m) return;
+      var txt = m[2].trim(), re = /\[(\d+):(\d+(?:\.\d+)?)\]/g, x;
+      while ((x = re.exec(m[1]))) out.push({ t: (parseInt(x[1], 10) * 60 + parseFloat(x[2])) * 1000, s: txt });
+    });
+    out.sort(function (a, b) { return a.t - b.t; });
+    return out;
+  }
+  function setLyric(s) {
+    ['ly', 'sub'].forEach(function (id) {
+      var e = $(id); e.textContent = s;
+      e.classList.remove('in'); void e.offsetWidth; e.classList.add('in');
+    });
+  }
+  function lyricTick() {
+    if (!media || !lyr || !lyr.length) {
+      if (lastLine !== null) { lastLine = null; setLyric(''); }
+      return;
+    }
+    var p = curPos() + 250, s = '';
+    for (var i = lyr.length - 1; i >= 0; i--) { if (lyr[i].t <= p) { s = lyr[i].s; break; } }
+    if (s !== lastLine) { lastLine = s; setLyric(s); }
+  }
+  function loadLyrics() {
+    if (!media || !media.title) { lyr = null; lyrKey = ''; $('media').classList.remove('hasly'); updateSub(); return; }
+    var key = media.title + '|' + media.artist;
+    if (key === lyrKey) return;
+    lyrKey = key; lyr = null; lastLine = null; setLyric('');
+    $('media').classList.remove('hasly'); updateSub();
+    if (A()) { try { A().fetchLyrics(key, media.title, media.artist || '', Math.round((media.dur || 0) / 1000)); } catch (e) {} }
+  }
+  window.onLyrics = function (o) {
+    if (!o || o.key !== lyrKey) return;
+    var l = parseLrc(o.lrc);
+    lyr = l.length ? l : null;
+    $('media').classList.toggle('hasly', !!lyr);
+    lastLine = null; lyricTick(); updateSub();
+    if (S === 'open') layoutOpen();
+  };
+  setInterval(function () { if (playing && lyr) lyricTick(); }, 250);
 
   // ---------- музыка ----------
   function curPos() {
@@ -371,6 +442,7 @@
     $('pt').textContent = title; $('pa').textContent = artist;
     var art = media.art ? 'url("' + media.art + '")' : 'none';
     $('cover').style.backgroundImage = art; $('arts').style.backgroundImage = art;
+    c.style.setProperty('--art', art);
     $('bplay').innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
     tickProgress();
   }
@@ -380,7 +452,7 @@
     mediaStamp = Date.now();
     hasMedia = !!media; playing = !!(media && media.playing);
     var key = media ? (media.title + '|' + media.artist) : '';
-    renderMedia(); applyBody(); updateMood();
+    renderMedia(); loadLyrics(); updateSub(); applyBody(); updateMood();
     if (S === 'open') layoutOpen();
     else if (playing && (!wasPlaying || key !== oldKey)) peek();
   };
@@ -396,10 +468,16 @@
     var r = this.getBoundingClientRect();
     var f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
     mc('seek:' + Math.round(f * media.dur));
-    media.pos = f * media.dur; mediaStamp = Date.now(); tickProgress();
+    media.pos = f * media.dur; mediaStamp = Date.now(); tickProgress(); lyricTick();
+  });
+  $('cc').classList.toggle('on', subsOn);
+  $('cc').addEventListener('click', function () {
+    subsOn = !subsOn; $('cc').classList.toggle('on', subsOn);
+    try { localStorage.setItem('subs', subsOn ? '1' : '0'); } catch (e) {}
+    updateSub();
   });
 
-  // ---------- фонарик, секундомер, громкость ----------
+  // ---------- фонарик и секундомер ----------
   $('torch').addEventListener('click', function () {
     var want = !torchOn, r = want;
     if (A()) { try { r = A().torch(want); } catch (e) { r = false; } }
@@ -409,49 +487,41 @@
   function swTime() { return swAcc + (swRun ? Date.now() - swStart : 0); }
   function swRender() { $('swt').textContent = fmt(swTime()); $('sw').classList.toggle('on', swRun); }
   $('sw').addEventListener('click', function () {
-    if (swLongDone) { swLongDone = false; return; }
     if (swRun) { swAcc += Date.now() - swStart; swRun = false; } else { swStart = Date.now(); swRun = true; }
     swRender();
   });
-  $('sw').addEventListener('touchstart', function () {
-    swLT = setTimeout(function () { swAcc = 0; swRun = false; swLongDone = true; swRender(); }, 650);
-  }, { passive: true });
-  ['touchend', 'touchmove', 'touchcancel'].forEach(function (n) {
-    $('sw').addEventListener(n, function () { clearTimeout(swLT); }, { passive: true });
-  });
+  function swReset() { swAcc = 0; swRun = false; swRender(); }
   setInterval(function () { if (swRun && S === 'open') swRender(); }, 250);
-
-  function volFill(v) { $('vol').style.setProperty('--p', v + '%'); }
-  $('vol').addEventListener('input', function () {
-    var v = parseInt(this.value, 10); volFill(v);
-    if (A()) { try { A().setVolume(v); } catch (e) {} }
-    armIdle();
-  });
 
   // ---------- открытие ----------
   function refreshOpen() {
     tick(); pollBattery(); swRender(); renderMedia();
     if (Date.now() - lastWx > 600000) loadWeather();
-    if (A()) { try { var v = A().getVolume(); $('vol').value = v; volFill(v); } catch (e) {} } else volFill(50);
   }
 
-  // ---------- жесты: тап, свайп вверх/вниз ----------
-  var tx = 0, ty = 0, tTarget = null;
-  document.addEventListener('touchstart', function (e) {
-    var t = e.touches[0]; tx = t.clientX; ty = t.clientY; tTarget = e.target;
-    if (S === 'open') armIdle();
-  }, { passive: true });
-  document.addEventListener('touchend', function (e) {
-    if (tTarget && tTarget.closest && tTarget.closest('.ctl')) return;
-    var t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty;
-    if (Math.abs(dy) > 28 && Math.abs(dy) > Math.abs(dx)) { setState(dy < 0 ? 'collapsed' : 'open'); return; }
-    if (Math.abs(dx) < 16 && Math.abs(dy) < 16) {
-      if (S !== 'open') setState('open');
-      else if (ty < 46) setState('collapsed');
-    }
-  }, { passive: true });
-  // для предпросмотра на ПК/в Acode: клик мышью
-  if (!A()) {
+  // ---------- жесты: приходят из невидимого окна-ловца Android ----------
+  // x, y — в dp от левого верхнего угла острова
+  function pointEl(x, y) {
+    var vx = (winW - curW) / 2 + x;
+    return { el: document.elementFromPoint(vx, y), vx: vx, vy: y };
+  }
+  window.onTap = function (x, y) {
+    if (S === 'open') {
+      var pt = pointEl(x, y), ctl = pt.el && pt.el.closest ? pt.el.closest('.ctl') : null;
+      if (ctl) {
+        ctl.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: pt.vx, clientY: pt.vy }));
+        armIdle(); return;
+      }
+      if (y < 46) setState('collapsed'); else armIdle();
+    } else setState('open');
+  };
+  window.onSwipe = function (dir) { setState(dir < 0 ? 'collapsed' : 'open'); };
+  window.onLong = function (x, y) {
+    if (S !== 'open') return;
+    var el = pointEl(x, y).el;
+    if (el && el.closest && el.closest('#sw')) swReset();
+  };
+  if (!A()) {   // предпросмотр в браузере: клик мышью
     document.addEventListener('click', function (e) {
       if (e.target.closest && e.target.closest('.ctl')) return;
       if (S !== 'open') setState('open'); else if (e.clientY < 70) setState('collapsed');
@@ -460,13 +530,14 @@
 
   // ---------- старт ----------
   var sw = A() ? A().screenW() : window.innerWidth;
-  EXPW = Math.min(348, sw - 12);
+  EXPW = Math.min(324, sw - 16);
+  winW = EXPW;
   document.documentElement.style.setProperty('--W', EXPW + 'px');
-  ICON_PLAY = ICON_PLAY; $('bplay').innerHTML = ICON_PLAY;
-  applyBody(); tick(); pollBattery(); loadWeather(); swRender(); volFill(50);
+  $('bplay').innerHTML = ICON_PLAY;
+  applyBody(); tick(); pollBattery(); loadWeather(); swRender();
   setInterval(pollBattery, 10000);
   setInterval(tick, 5000);
-  setInterval(function () { updateMood(); }, 60000);
+  setInterval(updateMood, 60000);
 })();
 </script>
 </body>
