@@ -1,6 +1,7 @@
 package com.iskra.island
 
 import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -17,6 +18,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
@@ -65,10 +67,26 @@ class IslandService : Service() {
         return START_STICKY
     }
 
+    /** Пользователь смахнул приложение из недавних: пробуем сразу поднять остров заново. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        try {
+            val restart = Intent(applicationContext, IslandService::class.java)
+                .setPackage(packageName)
+            val pi = PendingIntent.getForegroundService(
+                applicationContext, 1, restart,
+                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val am = getSystemService(ALARM_SERVICE) as AlarmManager
+            am.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1500, pi)
+        } catch (e: Exception) {
+        }
+        super.onTaskRemoved(rootIntent)
+    }
+
     private fun startAsForeground() {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Искра", NotificationManager.IMPORTANCE_MIN)
+            NotificationChannel(CHANNEL, "Искра", NotificationManager.IMPORTANCE_LOW)
         )
         val stopPi = PendingIntent.getService(
             this, 0,
