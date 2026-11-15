@@ -9,6 +9,8 @@ import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.Settings
+import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.util.Base64
 import org.json.JSONObject
@@ -77,6 +79,12 @@ class IslandListener : NotificationListenerService() {
         try {
             NotificationListenerService.requestRebind(component())
         } catch (e: Exception) {
+        }
+        // Если прошивка временно отключила слушатель, передаём остров фоновой службе.
+        if (IslandController.isEnabled(this) && Settings.canDrawOverlays(this)) {
+            val keeper = IslandService.instance
+            if (keeper != null) IslandController.show(keeper, keeper)
+            else try { startForegroundService(Intent(this, IslandService::class.java)) } catch (_: Exception) {}
         }
         super.onListenerDisconnected()
     }

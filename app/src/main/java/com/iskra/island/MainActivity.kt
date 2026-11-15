@@ -64,15 +64,13 @@ class MainActivity : Activity() {
     private fun ensureIsland() {
         if (!IslandController.isEnabled(this)) return
         if (!Settings.canDrawOverlays(this)) return
-        val l = IslandListener.instance
-        if (l != null) {
-            IslandController.show(l, l)
-        } else if (!IslandController.isShowing()) {
-            try {
-                startForegroundService(Intent(this, IslandService::class.java))
-            } catch (e: Exception) {
-            }
+        // Держим foreground-службу даже при активном NotificationListener:
+        // на некоторых прошивках это заметно снижает шанс остановки после очистки недавних.
+        try {
+            startForegroundService(Intent(this, IslandService::class.java))
+        } catch (_: Exception) {
         }
+        IslandListener.instance?.let { IslandController.show(it, it) }
     }
 
     private fun listenerGranted(): Boolean {

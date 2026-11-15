@@ -23,12 +23,14 @@ class IslandService : Service() {
     companion object {
         const val ACTION_STOP = "com.iskra.island.STOP"
         private const val CHANNEL = "iskra"
+        @Volatile var instance: IslandService? = null
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         startAsForeground()
         if (!Settings.canDrawOverlays(this)) {
             stopSelf()
@@ -63,6 +65,7 @@ class IslandService : Service() {
 
     override fun onDestroy() {
         IslandController.hide(this)
+        if (instance === this) instance = null
         super.onDestroy()
     }
 

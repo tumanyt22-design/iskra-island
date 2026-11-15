@@ -1,162 +1,53 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
-  :root { --c: #ffb300; --bg: #000; --card: #111215; --line: #1c1e22; --tx: #f4f4f5; --mu: #868991; --ok: #3ddc84; }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; background: var(--bg); color: var(--tx); font-family: system-ui, -apple-system, Roboto, sans-serif; }
-  .wrap { max-width: 480px; margin: 0 auto; padding: 34px 22px 40px; }
-
-  .eyes { display: flex; justify-content: center; gap: 26px; height: 92px; align-items: center; margin-top: 8px; }
-  .eyes i {
-    width: 22px; height: 46px; border-radius: 14px; background: var(--c);
-    box-shadow: 0 0 34px rgba(255,179,0,.55); animation: blink 5s infinite;
-  }
-  @keyframes blink { 0%,93%,100% { height: 46px; } 96% { height: 4px; } }
-  .eyes { transition: transform .4s; }
-
-  h1 { margin: 22px 0 4px; text-align: center; font-size: 34px; font-weight: 600; letter-spacing: 1px; }
-  .sub { margin: 0; text-align: center; color: var(--mu); font-size: 14px; }
-
-  .power {
-    display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%;
-    margin: 34px 0 30px; padding: 18px; border: 0; border-radius: 22px; font-size: 16px; font-weight: 600;
-    background: var(--c); color: #000; transition: background .25s, color .25s;
-  }
-  .power .dot { width: 10px; height: 10px; border-radius: 50%; background: #000; transition: background .25s; }
-  .power.off { background: var(--card); color: var(--mu); }
-  .power.off .dot { background: #3a3c42; }
-  .power:active { opacity: .8; }
-
-  .cap { font-size: 12px; color: var(--mu); letter-spacing: .6px; text-transform: uppercase; margin: 0 4px 10px; }
-  .list { background: var(--card); border-radius: 22px; overflow: hidden; }
-  .item { display: flex; align-items: center; gap: 12px; padding: 16px 16px; }
-  .item + .item { border-top: 1px solid var(--line); }
-  .meta { flex: 1; min-width: 0; }
-  .meta b { display: block; font-size: 15px; font-weight: 600; }
-  .meta small { display: block; margin-top: 3px; font-size: 12px; color: var(--mu); line-height: 1.35; }
-  .item button {
-    border: 0; border-radius: 14px; padding: 10px 14px; font-size: 13px; font-weight: 600;
-    background: #1f2125; color: var(--tx);
-  }
-  .item button:active { opacity: .7; }
-  .tick { display: none; color: var(--ok); font-size: 20px; padding: 0 6px; }
-  .item.ok .tick { display: block; }
-  .item.ok button { display: none; }
-
-  .settings { margin-top: 22px; }
-  .setting { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
-  .setting:last-child { border-bottom:0; }
-  .setting .meta { flex:1; min-width:0; }
-  .setting input[type=range] { width:112px; accent-color:var(--c); }
-  .setting select { background:#25272c; color:var(--tx); border:0; border-radius:10px; padding:9px; max-width:120px; }
-  .setting input[type=checkbox] { width:19px; height:19px; accent-color:var(--c); }
-  .save { width:100%; border:0; border-radius:16px; background:var(--c); color:#000; font-weight:700; padding:14px; margin-top:12px; }
-  .hint { margin: 22px 4px 8px; font-size: 12px; line-height: 1.5; color: var(--mu); }
-  .link { border: 0; background: none; color: var(--c); font-size: 13px; font-weight: 600; padding: 6px 4px; }
-  .foot { margin-top: 26px; text-align: center; font-size: 12px; color: #4a4d54; line-height: 1.6; }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="eyes" id="eyes"><i></i><i></i></div>
-  <h1>Искра</h1>
-  <p class="sub">остров для твоего телефона</p>
-
-  <button class="power" id="power" data-act="toggle"><span class="dot"></span><span id="ptxt">Остров включён</span></button>
-
-  <p class="cap">Настройка</p>
-  <div class="list">
-    <div class="item" id="i-overlay">
-      <div class="meta"><b>Поверх приложений</b><small>чтобы остров был виден везде</small></div>
-      <span class="tick">✓</span><button data-act="overlay">Разрешить</button>
-    </div>
-    <div class="item" id="i-listener">
-      <div class="meta"><b>Доступ к уведомлениям</b><small>музыка в острове и защита от закрытия</small></div>
-      <span class="tick">✓</span><button data-act="listener">Разрешить</button>
-    </div>
-    <div class="item" id="i-battery">
-      <div class="meta"><b>Батарея без ограничений</b><small>чтобы система не усыпляла остров</small></div>
-      <span class="tick">✓</span><button data-act="battery">Настроить</button>
-    </div>
-  </div>
-
-  <div class="settings">
-    <p class="cap">Внешний вид острова</p>
-    <div class="list">
-      <div class="setting"><div class="meta"><b>Тема</b><small>Цвет глаз и акцентов</small></div>
-        <select id="theme"><option value="gold">Золотая</option><option value="blue">Голубая</option><option value="purple">Фиолетовая</option><option value="green">Зелёная</option></select>
-      </div>
-      <div class="setting"><div class="meta"><b>Размер</b><small><span id="scaleVal">90</span>%</small></div><input id="scale" type="range" min="75" max="100" value="90"></div>
-      <div class="setting"><div class="meta"><b>Положение сверху</b><small><span id="topVal">8</span> dp от верхнего края</small></div><input id="top" type="range" min="0" max="80" value="8"></div>
-    </div>
-    <p class="cap" style="margin-top:18px">Что показывать в острове</p>
-    <div class="list">
-      <label class="setting"><div class="meta"><b>Погода</b></div><input id="weather" type="checkbox" checked></label>
-      <label class="setting"><div class="meta"><b>Музыкальный плеер</b></div><input id="music" type="checkbox" checked></label>
-      <label class="setting"><div class="meta"><b>Батарея</b></div><input id="battery" type="checkbox" checked></label>
-      <label class="setting"><div class="meta"><b>Фонарик</b></div><input id="torch" type="checkbox" checked></label>
-      <label class="setting"><div class="meta"><b>Секундомер</b></div><input id="stopwatch" type="checkbox" checked></label>
-      <label class="setting"><div class="meta"><b>Субтитры в свёрнутом острове</b></div><input id="subtitles" type="checkbox" checked></label>
-    </div>
-    <button class="save" id="saveSettings">Сохранить настройки</button>
-  </div>
-
-  <p class="hint">Если «Доступ к уведомлениям» серый или не включается: открой настройки приложения, нажми ⋮ вверху справа и выбери «Разрешить ограниченные настройки». Потом вернись и включи доступ.</p>
-  <button class="link" data-act="appinfo">Настройки приложения →</button>
-
-  <div class="foot">Нажми на остров — раскроется.<br>Свайп вверх — свернётся.</div>
+:root{--c:#ffb300;--bg:#08090b;--card:#14161a;--line:#25282e;--tx:#f4f4f5;--mu:#9297a1;--ok:#45d483}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Roboto,sans-serif}
+.wrap{max-width:520px;margin:auto;padding:28px 20px 42px}.hero{text-align:center;padding:12px 0 4px}.eyes{height:70px;display:flex;align-items:center;justify-content:center;gap:24px}.eyes i{width:13px;height:30px;border-radius:12px;background:var(--c);box-shadow:0 0 22px color-mix(in srgb,var(--c),transparent 35%);animation:blink 5s infinite}@keyframes blink{0%,93%,100%{height:30px}96%{height:3px}}
+h1{font-size:32px;font-weight:650;letter-spacing:.4px;margin:8px 0 2px}.sub{color:var(--mu);font-size:13px;margin:0}.power{width:100%;margin:25px 0 24px;padding:17px;border:0;border-radius:18px;background:var(--c);color:#111;font-weight:750;font-size:15px}.power.off{background:#25282e;color:#aaa}
+.cap{font-size:11px;color:var(--mu);letter-spacing:1px;text-transform:uppercase;margin:22px 4px 9px}.list{background:var(--card);border:1px solid #202329;border-radius:19px;overflow:hidden}.item,.setting{display:flex;align-items:center;gap:12px;padding:14px 15px;min-height:54px}.item+.item,.setting+.setting{border-top:1px solid var(--line)}.meta{flex:1;min-width:0}.meta b{display:block;font-size:14px;font-weight:620}.meta small{display:block;color:var(--mu);font-size:11px;line-height:1.35;margin-top:3px}.item button{border:0;border-radius:11px;padding:9px 12px;background:#292c32;color:var(--tx);font-weight:650;font-size:12px}.tick{display:none;color:var(--ok);font-size:20px}.item.ok .tick{display:block}.item.ok button{display:none}
+.setting input[type=range]{width:132px;accent-color:var(--c)}.setting input[type=color]{width:42px;height:34px;padding:0;border:0;background:none}.setting select{background:#292c32;color:var(--tx);border:0;border-radius:10px;padding:9px;max-width:130px}.setting input[type=checkbox]{width:19px;height:19px;accent-color:var(--c)}.val{font-size:11px;color:var(--mu);min-width:36px;text-align:right;font-variant-numeric:tabular-nums}.save{width:100%;border:0;border-radius:15px;background:var(--c);color:#111;font-weight:750;padding:15px;margin-top:12px}.hint,.about{font-size:12px;line-height:1.55;color:var(--mu);margin:17px 4px}.about{padding:16px;background:#111317;border:1px solid #24272d;border-radius:16px}.about b{color:var(--tx)}.link{border:0;background:none;color:var(--c);font-size:13px;font-weight:650;padding:8px 4px}.foot{text-align:center;color:#626772;font-size:11px;margin-top:22px}
+</style></head><body><main class="wrap">
+<div class="hero"><div class="eyes"><i></i><i></i></div><h1>Искра</h1><p class="sub">живой остров твоего телефона</p></div>
+<button class="power" id="power" data-act="toggle"><span id="ptxt">Остров включён</span></button>
+<p class="cap">Разрешения</p><div class="list">
+<div class="item" id="i-overlay"><div class="meta"><b>Поверх приложений</b><small>Показывает остров поверх других окон</small></div><span class="tick">✓</span><button data-act="overlay">Разрешить</button></div>
+<div class="item" id="i-listener"><div class="meta"><b>Доступ к уведомлениям</b><small>Музыка, управление воспроизведением и восстановление</small></div><span class="tick">✓</span><button data-act="listener">Разрешить</button></div>
+<div class="item" id="i-battery"><div class="meta"><b>Работа в фоне</b><small>Сними ограничения батареи, если система закрывает Искру</small></div><span class="tick">✓</span><button data-act="battery">Настроить</button></div></div>
+<p class="cap">Редактор интерфейса</p><div class="list">
+<div class="setting"><div class="meta"><b>Цветовая тема</b><small>Цвет глаз и подсветки</small></div><select id="theme"><option value="gold">Искра / золото</option><option value="blue">Лёд / голубой</option><option value="purple">Космос / фиолетовый</option><option value="green">Мята / зелёный</option><option value="custom">Свой цвет</option></select></div>
+<div class="setting"><div class="meta"><b>Свой цвет</b><small>Используется для темы «Свой цвет»</small></div><input id="customColor" type="color" value="#ffb300"></div>
+<div class="setting"><div class="meta"><b>Общий масштаб</b><small>Масштаб интерфейса</small></div><input id="scale" type="range" min="75" max="110" value="90"><span class="val" id="scaleVal">90%</span></div>
+<div class="setting"><div class="meta"><b>Отступ сверху</b><small>Положение острова</small></div><input id="top" type="range" min="0" max="100" value="8"><span class="val" id="topVal">8 dp</span></div>
 </div>
-
-<script>
-  document.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-act]');
-    if (!b) return;
-    try { App.act(b.getAttribute('data-act')); } catch (err) {}
-  });
-
-  window.setStatus = function (s) {
-    function mark(id, ok) { document.getElementById(id).classList.toggle('ok', !!ok); }
-    mark('i-overlay', s.overlay); mark('i-listener', s.listener); mark('i-battery', s.battery);
-    var p = document.getElementById('power');
-    p.classList.toggle('off', !s.enabled);
-    document.getElementById('ptxt').textContent = s.enabled ? 'Остров включён' : 'Остров выключен';
-  };
-  try { window.setStatus(JSON.parse(App.status())); } catch (e) {}
-
-  function readSettings() {
-    var ids = ['weather','music','battery','torch','stopwatch','subtitles'];
-    var o = { theme:document.getElementById('theme').value,
-      scale:parseInt(document.getElementById('scale').value,10),
-      top:parseInt(document.getElementById('top').value,10) };
-    ids.forEach(function(k){ o[k] = document.getElementById(k).checked; });
-    return o;
-  }
-  function fillSettings(o) {
-    if (!o) return;
-    document.getElementById('theme').value = o.theme || 'gold';
-    document.getElementById('scale').value = o.scale || 90;
-    document.getElementById('top').value = o.top == null ? 8 : o.top;
-    ['weather','music','battery','torch','stopwatch','subtitles'].forEach(function(k){
-      document.getElementById(k).checked = o[k] !== false;
-    });
-    document.getElementById('scaleVal').textContent = document.getElementById('scale').value;
-    document.getElementById('topVal').textContent = document.getElementById('top').value;
-  }
-  document.getElementById('scale').addEventListener('input', function(){ document.getElementById('scaleVal').textContent=this.value; });
-  document.getElementById('top').addEventListener('input', function(){ document.getElementById('topVal').textContent=this.value; });
-  document.getElementById('saveSettings').addEventListener('click', function(){
-    try { App.saveSettings(JSON.stringify(readSettings())); } catch(e) {}
-  });
-  try { fillSettings(JSON.parse(App.settings())); } catch(e) { fillSettings(null); }
-
-  // глаза иногда смотрят по сторонам
-  setInterval(function () {
-    var r = Math.random(), x = r < .25 ? -14 : (r < .5 ? 14 : 0);
-    document.getElementById('eyes').style.transform = 'translateX(' + x + 'px)';
-  }, 2800);
-</script>
-</body>
-</html>
+<p class="cap">Размеры — независимо друг от друга</p><div class="list">
+<div class="setting"><div class="meta"><b>Закрытый: ширина</b><small>Компактный остров</small></div><input id="collapsedW" type="range" min="120" max="280" value="168"><span class="val" id="collapsedWVal">168</span></div>
+<div class="setting"><div class="meta"><b>Закрытый: высота</b></div><input id="collapsedH" type="range" min="36" max="72" value="44"><span class="val" id="collapsedHVal">44</span></div>
+<div class="setting"><div class="meta"><b>Открытый: ширина</b><small>Ширина раскрытой панели</small></div><input id="openW" type="range" min="260" max="420" value="324"><span class="val" id="openWVal">324</span></div>
+<div class="setting"><div class="meta"><b>Открытый: высота</b><small>Максимальная высота окна</small></div><input id="openH" type="range" min="240" max="520" value="340"><span class="val" id="openHVal">340</span></div>
+<div class="setting"><div class="meta"><b>Скругление углов</b></div><input id="radius" type="range" min="14" max="36" value="24"><span class="val" id="radiusVal">24</span></div>
+</div>
+<p class="cap">Содержимое острова</p><div class="list">
+<label class="setting"><span class="meta"><b>Погода</b></span><input id="weather" type="checkbox" checked></label>
+<label class="setting"><span class="meta"><b>Музыкальный плеер</b></span><input id="music" type="checkbox" checked></label>
+<label class="setting"><span class="meta"><b>Батарея</b></span><input id="battery" type="checkbox" checked></label>
+<label class="setting"><span class="meta"><b>Фонарик</b></span><input id="torch" type="checkbox" checked></label>
+<label class="setting"><span class="meta"><b>Секундомер</b></span><input id="stopwatch" type="checkbox" checked></label>
+<label class="setting"><span class="meta"><b>Субтитры в закрытом острове</b></span><input id="subtitles" type="checkbox" checked></label>
+</div><button class="save" id="saveSettings">Сохранить настройки</button>
+<div class="about"><b>Что такое Искра?</b><br>Искра — небольшой живой остров поверх экрана. Он показывает время, дату, погоду, заряд батареи и музыку, умеет управлять воспроизведением, фонариком и секундомером. Его глаза меняют выражение и цвет в зависимости от событий: радость, сонливость, грусть, удивление, злость и другие настроения. Настройки размеров и оформления сохраняются после перезапуска.</div>
+<p class="hint">Если доступ к уведомлениям не включается: открой настройки приложения, нажми ⋮ и разреши ограниченные настройки. На некоторых телефонах также нужно разрешить автозапуск и работу в фоне.</p><button class="link" data-act="appinfo">Настройки приложения →</button>
+<div class="foot">Нажми на остров — откроется панель. Свайп вверх — раскрыть, вниз — свернуть. Долгое нажатие на секундомер — сброс.</div>
+</main><script>
+document.addEventListener('click',function(e){var b=e.target.closest('[data-act]');if(b){try{App.act(b.getAttribute('data-act'))}catch(_){}}});
+window.setStatus=function(s){['overlay','listener','battery'].forEach(function(k){document.getElementById('i-'+k).classList.toggle('ok',!!s[k])});var p=document.getElementById('power');p.classList.toggle('off',!s.enabled);document.getElementById('ptxt').textContent=s.enabled?'Остров включён':'Остров выключен'};
+function ids(){return ['weather','music','battery','torch','stopwatch','subtitles']}
+var ranges=['scale','top','collapsedW','collapsedH','openW','openH','radius'];
+ranges.forEach(function(id){var el=document.getElementById(id);el.addEventListener('input',function(){document.getElementById(id+'Val').textContent=this.value+(id==='scale'?'%':id==='top'?' dp':'')})});
+function read(){var o={theme:document.getElementById('theme').value,customColor:document.getElementById('customColor').value};ranges.forEach(function(k){o[k]=parseInt(document.getElementById(k).value,10)});ids().forEach(function(k){o[k]=document.getElementById(k).checked});return o}
+function fill(o){if(!o)return;['theme','customColor'].forEach(function(k){if(o[k]!=null)document.getElementById(k).value=o[k]});ranges.forEach(function(k){if(o[k]!=null)document.getElementById(k).value=o[k];document.getElementById(k+'Val').textContent=document.getElementById(k).value+(k==='scale'?'%':k==='top'?' dp':'')});ids().forEach(function(k){document.getElementById(k).checked=o[k]!==false})}
+document.getElementById('saveSettings').addEventListener('click',function(){try{App.saveSettings(JSON.stringify(read()));this.textContent='Сохранено ✓';setTimeout(()=>this.textContent='Сохранить настройки',1400)}catch(e){this.textContent='Не удалось сохранить'}});
+try{window.setStatus(JSON.parse(App.status()));fill(JSON.parse(App.settings()))}catch(e){}
+</script></body></html>

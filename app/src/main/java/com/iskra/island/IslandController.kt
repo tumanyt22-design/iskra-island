@@ -38,7 +38,8 @@ object IslandController {
 
     // Настройки пользователя сохраняются между запусками.
     private val defaultSettings = JSONObject().apply {
-        put("theme", "gold"); put("scale", 90); put("top", 8)
+        put("theme", "gold"); put("customColor", "#ffb300"); put("scale", 90); put("top", 8)
+        put("collapsedW", 168); put("collapsedH", 44); put("openW", 324); put("openH", 340); put("radius", 24)
         put("weather", true); put("music", true); put("battery", true)
         put("torch", true); put("stopwatch", true); put("subtitles", true)
     }
@@ -48,6 +49,10 @@ object IslandController {
         o.put("theme", p.getString("theme", "gold"))
         o.put("scale", p.getInt("scale", 90))
         o.put("top", p.getInt("top", 8))
+        o.put("customColor", p.getString("customColor", "#ffb300"))
+        o.put("collapsedW", p.getInt("collapsedW", 168)); o.put("collapsedH", p.getInt("collapsedH", 44))
+        o.put("openW", p.getInt("openW", 324)); o.put("openH", p.getInt("openH", 340))
+        o.put("radius", p.getInt("radius", 24))
         for (k in listOf("weather","music","battery","torch","stopwatch","subtitles"))
             o.put(k, p.getBoolean(k, true))
         return o.toString()
@@ -57,9 +62,16 @@ object IslandController {
             val o = JSONObject(raw)
             val e = prefs(c).edit()
             val theme = o.optString("theme", "gold")
-            e.putString("theme", if (theme in listOf("gold","blue","purple","green")) theme else "gold")
-            e.putInt("scale", o.optInt("scale", 90).coerceIn(75, 100))
-            e.putInt("top", o.optInt("top", 8).coerceIn(0, 80))
+            e.putString("theme", if (theme in listOf("gold","blue","purple","green","custom")) theme else "gold")
+            e.putInt("scale", o.optInt("scale", 90).coerceIn(75, 110))
+            e.putInt("top", o.optInt("top", 8).coerceIn(0, 100))
+            val custom = o.optString("customColor", "#ffb300").takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#ffb300"
+            e.putString("customColor", custom)
+            e.putInt("collapsedW", o.optInt("collapsedW", 168).coerceIn(120, 280))
+            e.putInt("collapsedH", o.optInt("collapsedH", 44).coerceIn(36, 72))
+            e.putInt("openW", o.optInt("openW", 324).coerceIn(260, 420))
+            e.putInt("openH", o.optInt("openH", 340).coerceIn(240, 520))
+            e.putInt("radius", o.optInt("radius", 24).coerceIn(14, 36))
             for (k in listOf("weather","music","battery","torch","stopwatch","subtitles"))
                 e.putBoolean(k, o.optBoolean(k, true))
             e.apply()
@@ -74,7 +86,7 @@ object IslandController {
 
     private const val COLLAPSED_W = 168
     private const val COLLAPSED_H = 44
-    private const val VIS_H = 340   // высота окна с рисунком, dp (не меняется)
+    private const val VIS_H = 600   // высота окна с рисунком, dp (не меняется)
 
     private var owner: Any? = null
     private var ctx: Context? = null
@@ -168,13 +180,12 @@ object IslandController {
         w.loadDataWithBaseURL("https://iskra.local/", html, "text/html", "UTF-8", null)
 
         val dm = context.resources.displayMetrics
-        val expW = minOf(324, (dm.widthPixels / dm.density).toInt() - 16)
+        val expW = minOf(420, (dm.widthPixels / dm.density).toInt() - 16)
         visW = expW
-        val visualFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-        // У окна касаний намеренно НЕТ LAYOUT_NO_LIMITS/LAYOUT_IN_SCREEN:
-        // иначе некоторые прошивки растягивают область касания к системной верхней зоне.
+        // Оба окна используют одну и ту же область координат. Не рисуемся под системной
+        // строкой и не растягиваем окно за границы экрана: это устраняет рассинхрон хитбокса
+        // на прошивках, которые по-разному обрабатывают LAYOUT_IN_SCREEN/NO_LIMITS.
+        val visualFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         val touchFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
@@ -192,7 +203,8 @@ object IslandController {
         val cv = View(context)
         cv.setOnTouchListener { _, e -> onCatch(e) }
         val cp = WindowManager.LayoutParams(
-            dp((COLLAPSED_W * prefs(context).getInt("scale", 90) / 100f).toInt()), dp(COLLAPSED_H),
+            dp((prefs(context).getInt("collapsedW", COLLAPSED_W) * prefs(context).getInt("scale", 90) / 100f).toInt()),
+            dp((prefs(context).getInt("collapsedH", COLLAPSED_H) * prefs(context).getInt("scale", 90) / 100f).toInt()),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             touchFlags,
             PixelFormat.TRANSLUCENT
@@ -306,8 +318,10 @@ object IslandController {
         val v = catcher ?: return
         val p = clp ?: return
         val m = wm ?: return
-        p.width = dp(minOf(wd, visW))
-        p.height = dp(hd)
+        val c = ctx ?: return
+        val maxW = minOf(visW, (c.resources.displayMetrics.widthPixels / density()).toInt() - 8)
+        p.width = dp(wd.coerceIn(80, maxW))
+        p.height = dp(hd.coerceIn(32, 600))
         try {
             m.updateViewLayout(v, p)
         } catch (e: Exception) {
